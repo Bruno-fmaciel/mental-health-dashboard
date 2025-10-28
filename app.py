@@ -35,4 +35,4 @@ with col2:
     st.dataframe(filtered.head(20), use_container_width=True)
 
 st.divider()
-st.markdown("**Dica:** crie *Issues* no GitHub para cada TODO e relacione às páginas.")
+st.markdown("**Próximos passos:** criar *Issues* no GitHub para cada TODO e relacione às páginas.")
