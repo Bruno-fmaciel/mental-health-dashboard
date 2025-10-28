@@ -44,6 +44,18 @@ def _normalize_columns(df: pd.DataFrame, filepath: str) -> pd.DataFrame:
     """Normaliza nomes de colunas para o padrão esperado pelos gráficos."""
     df = df.copy()
     
+    # Criar age_group se Age existir
+    if 'Age' in df.columns:
+        df['age_group'] = pd.cut(
+            df['Age'],
+            bins=[0, 30, 40, 50, 100],
+            labels=['18-30', '31-40', '41-50', '50+']
+        ).astype(str)
+    
+    # Normaliza Gender para lowercase para consistência
+    if 'Gender' in df.columns:
+        df['gender'] = df['Gender'].str.lower()
+    
     # Mapeamento baseado no arquivo de origem
     if 'dataset_principal' in filepath:
         # Dataset principal: foco em saúde mental geral
