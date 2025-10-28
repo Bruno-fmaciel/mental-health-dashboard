@@ -1,35 +1,38 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
+from utils.data_io import load_data, render_sidebar
+from utils.theming import set_page_theme
 
+# Configuração básica da página
 st.set_page_config(
-    page_title="Dashboard de Saúde Mental",
-    layout="wide",
-    page_icon="🧠"
+    page_title="Mental Health — Dashboard SR2",
+    page_icon="🧠",
+    layout="wide"
 )
+set_page_theme()
 
-st.title("🧠 Dashboard de Saúde Mental no Trabalho")
+# Carrega dados (ajuste o caminho ou fonte em utils/data_io.py)
+df = load_data()
 
-# --- Carregar os datasets ---
-@st.cache_data
-def carregar_dados():
-    df_principal = pd.read_csv("data/dataset_principal.csv")
-    df_burnout = pd.read_csv("data/dataset_burnout.csv")
-    df_remote = pd.read_csv("data/dataset_workplace.csv")
-    return df_principal, df_burnout, df_remote
+# Sidebar global (filtros compartilhados)
+filtered = render_sidebar(df)
 
-df_principal, df_burnout, df_remote = carregar_dados()
+st.title("🧠 Mental Health — Dashboard SR2")
+st.caption("Home • Use o menu lateral para navegar pelas páginas.")
 
-# --- Mostrar métricas iniciais ---
-col1, col2, col3 = st.columns(3)
-col1.metric("Registros (Principal)", len(df_principal))
-col2.metric("Registros (Burnout)", len(df_burnout))
-col3.metric("Registros (Remoto)", len(df_remote))
+col1, col2 = st.columns([1, 2])
+with col1:
+    st.subheader("Status")
+    st.markdown("""
+    - ✅ Estrutura multipágina criada
+    - ✅ Filtros globais na sidebar
+    - 🧩 Complete gráficos nas páginas em `pages/`
+    - 📄 Ajuste o texto em **Sobre & Métodos**
+    """)
 
-# --- Gráfico de exemplo ---
-st.subheader("Distribuição de gênero - Dataset Principal")
-if "Gender" in df_principal.columns:
-    graf = px.histogram(df_principal, x="Gender", title="Distribuição de Gênero")
-    st.plotly_chart(graf, use_container_width=True)
-else:
-    st.warning("Coluna 'Gender' não encontrada no dataset principal.")
+with col2:
+    st.subheader("Dados carregados (amostra)")
+    st.dataframe(filtered.head(20), use_container_width=True)
+
+st.divider()
+st.markdown("**Dica:** crie *Issues* no GitHub para cada TODO e relacione às páginas.")
