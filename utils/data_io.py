@@ -89,8 +89,16 @@ def _normalize_columns(df: pd.DataFrame, filepath: str) -> pd.DataFrame:
     return df
 
 
-def render_sidebar(df: pd.DataFrame) -> pd.DataFrame:
-    """Cria filtros globais e retorna df filtrado. Reuse em todas as páginas."""
+def render_sidebar(df: pd.DataFrame, show_segment_filter: bool = False) -> pd.DataFrame:
+    """Cria filtros globais e retorna df filtrado. Reuse em todas as páginas.
+    
+    Args:
+        df: DataFrame com os dados
+        show_segment_filter: Se True, mostra filtro adicional de segmentos (útil para página de Perfis)
+    
+    Returns:
+        DataFrame filtrado
+    """
     st.sidebar.header("Filtros")
     
     if df is None or df.empty:
@@ -100,10 +108,25 @@ def render_sidebar(df: pd.DataFrame) -> pd.DataFrame:
     # Obtém valores únicos para os filtros
     roles = sorted(df['role'].dropna().unique()) if 'role' in df.columns else []
     work_modes = sorted(df['work_mode'].dropna().unique()) if 'work_mode' in df.columns else []
+    segments = sorted(df['segment'].dropna().unique()) if 'segment' in df.columns else []
     
     # Cria os filtros
-    sel_roles = st.sidebar.multiselect("Cargo(s)", roles, default=roles[:3] if roles else [])
-    sel_modes = st.sidebar.multiselect("Modalidade", work_modes, default=work_modes if work_modes else [])
+    sel_roles = st.sidebar.multiselect("Cargo(s)", roles, default=roles[:3] if roles else [], key="filter_roles")
+    sel_modes = st.sidebar.multiselect("Modalidade", work_modes, default=work_modes if work_modes else [], key="filter_modes")
+    
+    # Filtro de segmentos (opcional, apenas na página de Perfis)
+    if show_segment_filter and segments:
+        st.sidebar.divider()
+        st.sidebar.subheader("📊 Análise de Segmentos")
+        sel_segments = st.sidebar.multiselect(
+            "Comparar segmentos",
+            segments,
+            default=segments[:4] if len(segments) >= 4 else segments,
+            help="Selecione os departamentos/regiões que deseja comparar",
+            key="filter_segments"
+        )
+    else:
+        sel_segments = []
     
     # Slider de horas por semana
     if 'hours_per_week' in df.columns and df['hours_per_week'].notna().any():
@@ -122,10 +145,13 @@ def render_sidebar(df: pd.DataFrame) -> pd.DataFrame:
     if sel_modes and 'work_mode' in f.columns:
         f = f[f['work_mode'].isin(sel_modes)]
     
+    if sel_segments and 'segment' in f.columns:
+        f = f[f['segment'].isin(sel_segments)]
+    
     if 'hours_per_week' in f.columns:
         f = f[(f['hours_per_week'] >= rng_hours[0]) & (f['hours_per_week'] <= rng_hours[1])]
     
-    st.sidebar.caption(f"📊 {len(f)} de {len(df)} registros selecionados")
+    st.sidebar.caption(f"📊 {len(f):,} de {len(df):,} registros selecionados")
     st.sidebar.caption("💡 Dica: refine os filtros conforme suas perguntas de negócio.")
     
     return f
