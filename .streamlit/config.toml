@@ -1,18 +1,7 @@
 [theme]
-# Tema customizado para o Dashboard de Saúde Mental
-primaryColor = "#4A90E2"
-backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F0F2F6"
-textColor = "#262730"
-font = "sans serif"
-
-[server]
-# Configurações do servidor
-headless = true
-enableCORS = false
-enableXsrfProtection = true
-
-[browser]
-# Configurações do navegador
-gatherUsageStats = false
-
+base="dark"
+primaryColor="#2980b9"
+backgroundColor="#0E1117"
+secondaryBackgroundColor="#1B1F24"
+textColor="#E4E6EB"
+font="sans serif"
