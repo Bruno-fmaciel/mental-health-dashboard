@@ -47,17 +47,154 @@ def box_burnout_by_role(df: pd.DataFrame):
     return fig
 
 
-def stacked_env_policies(df: pd.DataFrame):
-    # TODO: ajuste estas colunas às suas políticas/variáveis ambientais
+def stacked_env_policies(
+    df: pd.DataFrame,
+    policy_col: str = 'policy',
+    min_pct: float = 5.0,
+    show_percentages: bool = True
+) -> go.Figure:
+    """
+    Cria gráfico de barras empilhadas mostrando a distribuição de burnout por política/condição.
+    
+    Args:
+        df: DataFrame com os dados
+        policy_col: Nome da coluna de política/condição a analisar
+        min_pct: Percentual mínimo para não agrupar em "Outros" (default: 5%)
+        show_percentages: Se True, mostra percentuais; se False, contagens absolutas
+    
+    Returns:
+        Figura Plotly com barras empilhadas
+    """
     if df is None or df.empty:
         return go.Figure()
-    # Exemplo mínimo: contar respostas por 'policy' × 'burnout_level'
-    if not set(['policy', 'burnout_level']).issubset(df.columns):
+    
+    # Valida colunas necessárias
+    if not set([policy_col, 'burnout_level']).issubset(df.columns):
         return go.Figure()
-    ct = df.groupby(['policy', 'burnout_level']).size().reset_index(name='n')
-    fig = px.bar(ct, x='policy', y='n', color='burnout_level', barmode='stack')
-    fig.update_layout(title="Políticas × Burnout", xaxis_title="Política", yaxis_title="Respostas")
+    
+    # Copia e prepara dados
+    df_work = df[[policy_col, 'burnout_level']].copy()
+    df_work = df_work.dropna()
+    
+    if df_work.empty:
+        return go.Figure()
+    
+    # Agrupa categorias raras em "Outros"
+    counts = df_work[policy_col].value_counts(normalize=True) * 100
+    rare_categories = counts[counts < min_pct].index.tolist()
+    
+    if rare_categories:
+        df_work[policy_col] = df_work[policy_col].apply(
+            lambda x: 'Outros' if x in rare_categories else x
+        )
+    
+    # Agrupa por política e burnout
+    ct = df_work.groupby([policy_col, 'burnout_level']).size().reset_index(name='n')
+    
+    if show_percentages:
+        # Calcula % dentro de cada política
+        ct['total_by_policy'] = ct.groupby(policy_col)['n'].transform('sum')
+        ct['value'] = (ct['n'] / ct['total_by_policy'] * 100).round(1)
+        y_label = "Percentual (%)"
+    else:
+        ct['value'] = ct['n']
+        y_label = "Número de Respondentes"
+    
+    # Mapa de cores consistente
+    color_map = {
+        'low': '#4ECDC4',      # Verde/azul (baixo risco)
+        'medium': '#FFE66D',   # Amarelo (risco médio)
+        'high': '#FF6B6B'      # Vermelho (alto risco)
+    }
+    
+    # Ordena burnout_level para garantir ordem consistente (low, medium, high)
+    burnout_order = ['low', 'medium', 'high']
+    ct['burnout_level'] = pd.Categorical(ct['burnout_level'], categories=burnout_order, ordered=True)
+    ct = ct.sort_values(['burnout_level', policy_col])
+    
+    # Cria gráfico
+    fig = px.bar(
+        ct, 
+        x=policy_col, 
+        y='value', 
+        color='burnout_level',
+        barmode='stack',
+        color_discrete_map=color_map,
+        category_orders={'burnout_level': burnout_order},
+        labels={
+            policy_col: 'Política/Condição',
+            'value': y_label,
+            'burnout_level': 'Nível de Burnout'
+        }
+    )
+    
+    # Adiciona texto nas barras
+    fig.update_traces(
+        texttemplate='%{y:.1f}' + ('%' if show_percentages else ''),
+        textposition='inside',
+        textfont_size=10
+    )
+    
+    fig.update_layout(
+        title="Distribuição de Burnout por Política de Suporte",
+        xaxis_title="Política/Condição Organizacional",
+        yaxis_title=y_label,
+        legend_title="Nível de Burnout",
+        hovermode='x unified',
+        height=500
+    )
+    
     return fig
+
+
+def compare_policies_risk(df: pd.DataFrame, policy_col: str = 'policy') -> pd.DataFrame:
+    """
+    Retorna tabela com análise de risco por política/condição.
+    
+    Args:
+        df: DataFrame com os dados
+        policy_col: Nome da coluna de política a analisar
+    
+    Returns:
+        DataFrame com colunas: policy, n_total, pct_high, pct_medium, pct_low
+        Ordenado por pct_high (decrescente)
+    """
+    if df is None or df.empty:
+        return pd.DataFrame()
+    
+    if not set([policy_col, 'burnout_level']).issubset(df.columns):
+        return pd.DataFrame()
+    
+    # Remove valores nulos
+    df_work = df[[policy_col, 'burnout_level']].dropna()
+    
+    if df_work.empty:
+        return pd.DataFrame()
+    
+    # Agrupa e calcula proporções
+    grouped = df_work.groupby([policy_col, 'burnout_level']).size().unstack(fill_value=0)
+    
+    # Calcula percentuais
+    totals = grouped.sum(axis=1)
+    pct = (grouped.div(totals, axis=0) * 100).round(1)
+    
+    # Monta resultado
+    result = pd.DataFrame({
+        policy_col: pct.index,
+        'n_total': totals.values
+    })
+    
+    # Adiciona percentuais de cada nível
+    for level in ['high', 'medium', 'low']:
+        if level in pct.columns:
+            result[f'pct_{level}'] = pct[level].values
+        else:
+            result[f'pct_{level}'] = 0.0
+    
+    # Ordena por risco alto (decrescente)
+    result = result.sort_values('pct_high', ascending=False).reset_index(drop=True)
+    
+    return result
 
 
 def violin_by_workmode(df: pd.DataFrame):
