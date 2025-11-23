@@ -282,7 +282,7 @@ def small_multiples_segments(df: pd.DataFrame):
     )
     
     fig.update_layout(
-        title_text="Comparação de Métricas por Segmento",
+        title_text="Perfil de Risco: Compare Estresse, Burnout e Horas por Segmento",
         showlegend=False,
         height=400
     )
