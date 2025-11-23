@@ -4,19 +4,81 @@ import plotly.graph_objects as go
 import pandas as pd
 
 def kpi_cards(df: pd.DataFrame):
-    import streamlit as st
-    if df is None or df.empty:
-        st.info("Sem dados para KPIs.")
-        return
-    # TODO: troque as métricas para suas regras
-    n_resp = len(df)
-    pct_risco = (df['burnout_level'].isin(['high', 'alto']).mean()*100) if 'burnout_level' in df.columns else 0
-    avg_stress = df['stress_score'].mean() if 'stress_score' in df.columns else 0
+    """
+    Exibe 4 KPIs principais sobre saúde mental e burnout.
     
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Respondentes", f"{n_resp:,}")
-    c2.metric("% Risco Burnout", f"{pct_risco:.1f}%")
-    c3.metric("Estresse médio", f"{avg_stress:.1f}")
+    Métricas:
+    - Respondentes: Tamanho da amostra
+    - % Risco Alto: Proporção com burnout_level = 'high'
+    - Estresse Médio: Score médio de estresse (0-10)
+    - Horas/Semana: Carga horária média
+    
+    Args:
+        df: DataFrame filtrado com os dados
+    """
+    import streamlit as st
+    
+    if df is None or df.empty:
+        st.info("📊 Sem dados para exibir KPIs. Ajuste os filtros na sidebar.")
+        return
+    
+    # Calcula métricas
+    n_resp = len(df)
+    
+    # % Risco Alto (burnout_level = 'high')
+    if 'burnout_level' in df.columns:
+        pct_risco_alto = (df['burnout_level'] == 'high').mean() * 100
+    else:
+        pct_risco_alto = 0
+    
+    # Estresse médio
+    if 'stress_score' in df.columns:
+        avg_stress = df['stress_score'].mean()
+    else:
+        avg_stress = 0
+    
+    # Horas trabalhadas por semana (média)
+    if 'hours_per_week' in df.columns:
+        avg_hours = df['hours_per_week'].mean()
+    else:
+        avg_hours = 0
+    
+    # Exibe KPIs em 4 colunas
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric(
+            "📊 Respondentes",
+            f"{n_resp:,}",
+            help="Número de pessoas incluídas na análise com os filtros atuais"
+        )
+    
+    with col2:
+        st.metric(
+            "⚠️ % Risco Alto",
+            f"{pct_risco_alto:.1f}%",
+            delta=f"{pct_risco_alto - 30:.1f}pp" if pct_risco_alto > 0 else None,
+            delta_color="inverse",
+            help="Percentual de colaboradores com nível alto de burnout (estado crítico). Benchmark: 30%"
+        )
+    
+    with col3:
+        st.metric(
+            "😰 Estresse Médio",
+            f"{avg_stress:.1f}",
+            delta=f"{avg_stress - 5:.1f}" if avg_stress > 0 else None,
+            delta_color="inverse",
+            help="Score médio de estresse (escala 0-10). Valores acima de 6 indicam alto estresse. Benchmark: 5.0"
+        )
+    
+    with col4:
+        st.metric(
+            "⏰ Horas/Semana",
+            f"{avg_hours:.1f}h",
+            delta=f"{avg_hours - 40:.1f}h" if avg_hours > 0 else None,
+            delta_color="inverse",
+            help="Carga horária média semanal. Valores acima de 45h estão associados a maior risco de burnout. Benchmark: 40h"
+        )
 
 
 def dist_stress(df: pd.DataFrame):
