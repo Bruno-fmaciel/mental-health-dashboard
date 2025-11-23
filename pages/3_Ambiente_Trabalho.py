@@ -1,6 +1,9 @@
 import streamlit as st
 from utils.data_io import load_data, render_sidebar
 from utils.charts import stacked_env_policies, compare_policies_risk
+from ui.insight_box import insight_box
+from insights.enviroments import insights_enviroments
+
 
 st.set_page_config(page_title="Ambiente de Trabalho — SR2", page_icon="🏢", layout="wide")
 
@@ -243,6 +246,14 @@ if min_n < 30:
     ⚠️ **Atenção à amostra**: Algumas políticas têm poucos respondentes (mínimo: {min_n}). 
     Resultados com amostras pequenas devem ser interpretados com cautela.
     """)
+
+    insights = insights_enviroments(df_filtered, policy_col=selected_dimension)
+    formatted = "<ul style='margin-left:18px;'>" + "".join([f"<li>{i}</li>" for i in insights]) + "</ul>"
+
+    insight_box(
+        title="🏢 Insights Automáticos: Ambiente & Políticas",
+        content=formatted
+    )
 
 # ====================================
 # FOOTER
