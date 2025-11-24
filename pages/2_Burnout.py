@@ -3,6 +3,8 @@ import pandas as pd
 import plotly.express as px
 from utils.data_io import load_data, render_sidebar
 from utils.charts import scatter_hours_burnout, box_burnout_by_role
+from ui.insight_box import insight_box
+from insights.burnout import insights_burnout
 
 st.set_page_config(page_title="Burnout — SR2", page_icon="🔥", layout="wide")
 
@@ -117,6 +119,16 @@ with col2:
     
     ⚠️ Atenção especial a cargos com estresse consistentemente >7.
     """)
+
+insights = insights_burnout(df_filtered)
+
+formatted_items = "".join([f"<li>{i}</li>" for i in insights])
+formatted = f"<ul style='margin-left: 20px;'>{formatted_items}</ul>"
+
+insight_box(
+    title="🔥 Insights Automáticos de Burnout",
+    content=formatted
+)
 
 # ====================================
 # FOOTER

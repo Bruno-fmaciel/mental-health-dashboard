@@ -1,6 +1,9 @@
 import streamlit as st
 from utils.data_io import load_data, render_sidebar
 from utils.charts import small_multiples_segments
+from ui.insight_box import insight_box
+from insights.segments import insights_segments
+
 
 st.set_page_config(page_title="Perfis & Segmentos — SR2", page_icon="🧩", layout="wide")
 
@@ -218,6 +221,14 @@ with col3:
     if 'hours_per_week' in df_filtered.columns:
         avg_hours = df_filtered['hours_per_week'].mean()
         st.metric("Horas/Sem Média Geral", f"{avg_hours:.1f}h")
+
+insights = insights_segments(df_filtered)
+formatted = "<ul>" + "".join([f"<li>{i}</li>" for i in insights]) + "</ul>"
+
+insight_box(
+    title="🧩 Insights Automáticos: Perfis & Segmentos",
+    content=formatted
+)
 
 # ====================================
 # FOOTER

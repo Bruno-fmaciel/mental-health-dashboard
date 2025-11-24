@@ -1,6 +1,8 @@
 import streamlit as st
 from utils.data_io import load_data, render_sidebar
 from utils.charts import kpi_cards, dist_stress
+from ui.insight_box import insight_box
+from insights.overview import insights_overview
 
 st.set_page_config(page_title="Visão Geral — SR2", page_icon="📊", layout="wide")
 
@@ -79,6 +81,19 @@ with col2:
     3. 🧩 **Perfis & Segmentos** - Identifique grupos de alto risco
     4. 📊 Use os **filtros** para análises específicas
     """)
+
+insights = insights_overview(df_filtered)
+
+# Formata insights como lista HTML
+formatted_items = "".join([f"<li>{i}</li>" for i in insights])
+formatted = f"<ul style='margin-left: 20px;'>{formatted_items}</ul>"
+
+# Renderiza usando o card estilizado
+insight_box(
+    title="🔍 Insights Automáticos da Visão Geral",
+    content=formatted
+)
+
 
 # ====================================
 # FOOTER

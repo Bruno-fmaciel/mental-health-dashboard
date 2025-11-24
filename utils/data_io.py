@@ -60,7 +60,7 @@ def _normalize_columns(df: pd.DataFrame, filepath: str) -> pd.DataFrame:
     if 'dataset_principal' in filepath:
         # Dataset principal: foco em saúde mental geral
         df['role'] = df.get('Occupation', 'Unknown')
-        df['work_mode'] = 'Office'  # Assumir presencial se não especificado
+        df['work_mode'] = df.get('RemoteWork', df.get('Work_Location', 'unknown')) # Assumir presencial se não especificado
         df['stress_score'] = df['Growing_Stress'].map({'Yes': 8, 'No': 3}).fillna(5)
         df['burnout_level'] = df['Mood_Swings'].map({
             'High': 'high', 'Medium': 'medium', 'Low': 'low'
@@ -97,7 +97,37 @@ def _normalize_columns(df: pd.DataFrame, filepath: str) -> pd.DataFrame:
             'Yes': 'With Support', 'No': 'Without Support'
         }).fillna('Unknown')
         df['segment'] = df.get('Department', 'Unknown')
-    
+
+    # ============================================
+    # Padronização geral da coluna work_mode
+    # ============================================
+    if "work_mode" in df.columns:
+        df["work_mode"] = df["work_mode"].astype(str).str.strip().str.lower()
+
+        df["work_mode"] = df["work_mode"].replace({
+            # Remoto
+            "remote": "remote",
+            "remoto": "remote",
+            "work from home": "remote",
+            "home office": "remote",
+            "wfh": "remote",
+            "yes": "remote",     # usado no dataset_workplace
+
+            # Híbrido
+            "hibrido": "hybrid",
+            "híbrido": "hybrid",
+            "hybrid": "hybrid",
+
+            # Presencial / Onsite
+            "office": "onsite",
+            "onsite": "onsite",
+            "on-site": "onsite",
+            "presencial": "onsite",
+            "no": "onsite",      # usado no dataset_workplace
+            "unknown": "onsite"  # melhor assumir que é presencial
+        })
+
+
     return df
 
 
