@@ -2,83 +2,135 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
+import streamlit as st
+import textwrap
 
-def kpi_cards(df: pd.DataFrame):
-    """
-    Exibe 4 KPIs principais sobre saúde mental e burnout.
-    
-    Métricas:
-    - Respondentes: Tamanho da amostra
-    - % Risco Alto: Proporção com burnout_level = 'high'
-    - Estresse Médio: Score médio de estresse (0-10)
-    - Horas/Semana: Carga horária média
-    
-    Args:
-        df: DataFrame filtrado com os dados
-    """
-    import streamlit as st
-    
-    if df is None or df.empty:
-        st.info("📊 Sem dados para exibir KPIs. Ajuste os filtros na sidebar.")
+def kpi_cards(df_filtered, df_total):
+
+    # ============================================
+    # 1. Proteção contra DF vazio
+    # ============================================
+    if df_filtered.empty:
+        st.info("Nenhum dado disponível para KPIs.")
         return
-    
-    # Calcula métricas
-    n_resp = len(df)
-    
-    # % Risco Alto (burnout_level = 'high')
-    if 'burnout_level' in df.columns:
-        pct_risco_alto = (df['burnout_level'] == 'high').mean() * 100
-    else:
-        pct_risco_alto = 0
-    
-    # Estresse médio
-    if 'stress_score' in df.columns:
-        avg_stress = df['stress_score'].mean()
-    else:
-        avg_stress = 0
-    
-    # Horas trabalhadas por semana (média)
-    if 'hours_per_week' in df.columns:
-        avg_hours = df['hours_per_week'].mean()
-    else:
-        avg_hours = 0
-    
-    # Exibe KPIs em 4 colunas
+
+    # ============================================
+    # 2. MÉTRICAS FILTRADAS
+    # ============================================
+    n = len(df_filtered)
+    stress_mean = df_filtered["stress_score"].mean()
+    burnout_high_pct = (df_filtered["burnout_level"] == "high").mean() * 100
+    hours_mean = df_filtered["hours_per_week"].mean()
+
+    # ============================================
+    # 3. BENCHMARK GLOBAL
+    # ============================================
+    stress_global = df_total["stress_score"].mean()
+    burnout_high_global = (df_total["burnout_level"] == "high").mean() * 100
+    hours_global = df_total["hours_per_week"].mean()
+
+    # ============================================
+    # 4. DELTAS (com proteção contra NA)
+    # ============================================
+    def safe_delta(a, b):
+        if a is None or b is None or b == 0:
+            return 0
+        return a - b
+
+    delta_stress = safe_delta(stress_mean, stress_global)
+    delta_burnout = safe_delta(burnout_high_pct, burnout_high_global)
+    delta_hours = safe_delta(hours_mean, hours_global)
+
+    # ============================================
+    # FUNÇÃO DE COR DO DELTA
+    # ============================================
+    def color_delta(v, higher_is_bad=True):
+        if np.isnan(v):
+            return "#9ca3af"  # cinza
+        if higher_is_bad:
+            return "#ef4444" if v > 0 else "#10b981"
+        else:
+            return "#10b981" if v > 0 else "#ef4444"
+
+    # ============================================
+    # 5. LAYOUT EM 4 COLUNAS
+    # ============================================
     col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.metric(
-            "📊 Respondentes",
-            f"{n_resp:,}",
-            help="Número de pessoas incluídas na análise com os filtros atuais"
-        )
-    
-    with col2:
-        st.metric(
-            "⚠️ % Risco Alto",
-            f"{pct_risco_alto:.1f}%",
-            delta=f"{pct_risco_alto - 30:.1f}pp" if pct_risco_alto > 0 else None,
-            delta_color="inverse",
-            help="Percentual de colaboradores com nível alto de burnout (estado crítico). Benchmark: 30%"
-        )
-    
-    with col3:
-        st.metric(
-            "😰 Estresse Médio",
-            f"{avg_stress:.1f}",
-            delta=f"{avg_stress - 5:.1f}" if avg_stress > 0 else None,
-            delta_color="inverse",
-            help="Score médio de estresse (escala 0-10). Valores acima de 6 indicam alto estresse. Benchmark: 5.0"
-        )
-    
-    with col4:
-        st.metric(
-            "⏰ Horas/Semana",
-            f"{avg_hours:.1f}h",
-            delta=f"{avg_hours - 40:.1f}h" if avg_hours > 0 else None,
-            delta_color="inverse",
-            help="Carga horária média semanal. Valores acima de 45h estão associados a maior risco de burnout. Benchmark: 40h"
-        )
+
+    # ============================================
+    # TEMPLATE DE CARD PREMIUM
+    # ============================================
+    def render_card(col, value, label, delta, delta_label, color):
+        html = f"""
+        <div style="
+            padding: 22px;
+            border-radius: 14px;
+            background: #1e293b;
+            border: 1px solid #334155;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        ">
+            <div style="font-size: 1.9rem; font-weight: 700; color:{color};">
+                {value}
+            </div>
+
+            <div style="color:#e2e8f0; font-size: 1rem; margin-top:4px;">
+                {label}
+            </div>
+
+            <div style="
+                margin-top: 6px;
+                font-size: 0.85rem;
+                color: {color_delta(delta)};
+            ">
+                {delta_label}
+            </div>
+        </div>
+        """
+        col.html(textwrap.dedent(html))
+
+    # ============================================
+    # 6. RENDERIZA OS QUATRO KPIS
+    # ============================================
+
+    # --- RESPONDENTES ---
+    render_card(
+        col1,
+        f"{n:,}",
+        "Respondentes",
+        0,  # respondentes não tem delta
+        "Base filtrada",
+        "#60a5fa"
+    )
+
+    # --- ESTRESSE ---
+    render_card(
+        col2,
+        f"{stress_mean:.1f}",
+        "Estresse Médio",
+        delta_stress,
+        f"Δ {delta_stress:+.2f} vs global",
+        "#f87171"
+    )
+
+    # --- BURNOUT ALTO ---
+    render_card(
+        col3,
+        f"{burnout_high_pct:.1f}%",
+        "Burnout Alto",
+        delta_burnout,
+        f"Δ {delta_burnout:+.2f} pp vs global",
+        "#fb7185"
+    )
+
+    # --- HORAS SEMANAIS ---
+    render_card(
+        col4,
+        f"{hours_mean:.1f}h",
+        "Horas por Semana",
+        delta_hours,
+        f"Δ {delta_hours:+.2f}h vs global",
+        "#34d399"
+    )
 
 
 def dist_stress(df: pd.DataFrame):
@@ -485,3 +537,173 @@ def plot_delta_heatmap(
         title=f"Heatmap de Delta por {rows_col} × {cols_col}"
     )
     return fig
+
+def stress_distribution_premium(df):
+    import plotly.graph_objects as go
+    import numpy as np
+    import plotly.express as px
+
+    if df.empty:
+        return go.Figure()
+
+    x = df["stress_score"]
+
+    fig = go.Figure()
+
+    # HISTOGRAMA
+    fig.add_trace(go.Histogram(
+        x=x,
+        nbinsx=20,
+        marker=dict(
+            color="#4A90E2",
+            line=dict(color="#1e293b", width=1),
+        ),
+        opacity=0.65,
+        name="Distribuição"
+    ))
+
+    # KDE (linha suave)
+    kde_x = np.linspace(x.min(), x.max(), 200)
+    kde_y = (
+        (1 / (x.std() * np.sqrt(2 * np.pi))) *
+        np.exp(-0.5 * ((kde_x - x.mean()) / x.std()) ** 2)
+    )
+
+    fig.add_trace(go.Scatter(
+        x=kde_x,
+        y=kde_y * len(x) * (x.max() - x.min()) / 20,
+        mode="lines",
+        line=dict(color="#f87171", width=3),
+        name="Curva de Densidade"
+    ))
+
+    fig.update_layout(
+        title="Distribuição de Estresse (Premium)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="#0f172a",
+        font=dict(color="#e2e8f0"),
+        bargap=0.05,
+        margin=dict(l=15, r=15, t=40, b=15),
+        height=380,
+    )
+
+    return fig
+
+def hours_vs_stress_premium(df):
+    import plotly.express as px
+    import plotly.graph_objects as go
+
+    if df.empty:
+        return go.Figure()
+
+    fig = px.scatter(
+        df,
+        x="hours_per_week",
+        y="stress_score",
+        opacity=0.8,
+        trendline="ols",
+        color_discrete_sequence=["#60a5fa"],
+        labels={
+            "hours_per_week": "Horas por Semana",
+            "stress_score": "Estresse"
+        }
+    )
+
+    fig.update_traces(marker=dict(size=9, line=dict(width=1, color="#1e293b")))
+
+    fig.update_layout(
+        title="Carga Horária × Estresse (Premium)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="#0f172a",
+        font=dict(color="#e2e8f0"),
+        margin=dict(l=15, r=15, t=40, b=15),
+        height=380,
+    )
+
+    return fig
+
+def burnout_segments_premium(df):
+    import plotly.express as px
+    import plotly.graph_objects as go
+
+    if df.empty or "segment" not in df.columns:
+        return go.Figure()
+
+    seg = df.groupby("segment")["burnout_level"].apply(
+        lambda x: (x == "high").mean() * 100
+    ).sort_values(ascending=True).tail(8)
+
+    fig = px.bar(
+        seg,
+        orientation="h",
+        labels={"value": "% Burnout Alto", "segment": "Segmento"},
+        color=seg.values,
+        color_continuous_scale="Reds"
+    )
+
+    fig.update_layout(
+        title="Top Segmentos com Maior Burnout (Premium)",
+        coloraxis_showscale=False,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="#0f172a",
+        font=dict(color="#e2e8f0"),
+        height=420,
+        margin=dict(l=15, r=15, t=50, b=15),
+    )
+
+    return fig
+
+
+def risk_heatmap_premium(df):
+    import pandas as pd
+    import plotly.express as px
+    import plotly.graph_objects as go
+
+    if df is None or df.empty:
+        return go.Figure()
+
+    df = df.copy()
+
+    # Converte burnout para flag numérica
+    if "burnout_level" in df.columns:
+        df["burnout_flag"] = (df["burnout_level"] == "high").astype(int)
+
+    # Seleciona SOMENTE colunas numéricas
+    df_num = df.select_dtypes(include="number")
+
+    # Se tiver menos de 2 variáveis, não há correlação possível
+    if df_num.shape[1] < 2:
+        fig = go.Figure()
+        fig.add_annotation(
+            text="Dados insuficientes para gerar o heatmap.",
+            showarrow=False,
+            font=dict(color="white", size=16)
+        )
+        fig.update_layout(height=300, paper_bgcolor="rgba(0,0,0,0)")
+        return fig
+
+    # Calcula correlação
+    corr = df_num.corr()
+
+    fig = px.imshow(
+        corr,
+        text_auto=True,
+        color_continuous_scale="RdBu_r",
+        zmin=-1,
+        zmax=1,
+        aspect="auto",
+        labels=dict(color="Correlação"),
+        title="Mapa de Correlações entre Indicadores Numéricos (Premium)"
+    )
+
+    fig.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="#0f172a",
+        font=dict(color="#e2e8f0"),
+        margin=dict(l=40, r=40, t=70, b=40),
+        height=450,
+    )
+
+    return fig
+
+

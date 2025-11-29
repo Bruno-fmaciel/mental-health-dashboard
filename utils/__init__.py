@@ -10,7 +10,11 @@ from .charts import (
     box_burnout_by_role,
     stacked_env_policies,
     violin_by_workmode,
-    small_multiples_segments
+    small_multiples_segments,
+    stress_distribution_premium,
+    hours_vs_stress_premium,
+    burnout_segments_premium,
+    risk_heatmap_premium
 )
 
 __all__ = [
@@ -22,6 +26,10 @@ __all__ = [
     'box_burnout_by_role',
     'stacked_env_policies',
     'violin_by_workmode',
-    'small_multiples_segments'
+    'small_multiples_segments',
+    'stress_distribution_premium',
+    'hours_vs_stress_premium',
+    'burnout_segments_premium',
+    'risk_heatmap_premium'
 ]
 
