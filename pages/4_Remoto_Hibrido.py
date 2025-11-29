@@ -71,11 +71,8 @@ fig = px.box(
 )
 st.plotly_chart(fig, use_container_width=True)
 
-insights = insights_modalidades(filtered)
-formatted = "<ul>" + "".join([f"<li>{i}</li>" for i in insights]) + "</ul>"
-
-insight_box(
-    title="🏠 Insights Automáticos: Modalidades de Trabalho",
-    content=formatted
-)
+# ====================================
+# INSIGHTS
+# ====================================
+insight_box("🔥 Insights Automáticos de Burnout", insights_modalidades(filtered))
 

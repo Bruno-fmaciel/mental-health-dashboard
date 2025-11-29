@@ -1,28 +1,29 @@
-# insights/enviroments.py
-def insights_enviroments(df, policy_col='policy'):
+def insights_enviroments(df, policy_col="policy"):
+    if df is None or len(df) < 5 or policy_col not in df:
+        return ["Dados insuficientes para gerar insights sobre políticas."]
+
     insights = []
-    if df is None or len(df) == 0 or policy_col not in df.columns:
-        return ["Nenhum dado disponível para gerar insights sobre políticas."]
 
-    # Risco alto por política (se burnout_level existir)
-    if 'burnout_level' in df.columns:
-        try:
-            high_mask = df['burnout_level'] == 'high'
-            pct_high = (high_mask.groupby(df[policy_col]).mean() * 100).dropna().sort_values()
-            if len(pct_high) > 0:
-                best = pct_high.index[0]
-                worst = pct_high.index[-1]
-                insights.append(f"A política **{best}** está associada ao menor burnout alto (**{pct_high.iloc[0]:.1f}%**).")
-                insights.append(f"A política **{worst}** está associada ao maior burnout alto (**{pct_high.iloc[-1]:.1f}%**).")
-        except Exception:
-            pass
+    # Burnout por política
+    if "burnout_level" in df.columns:
+        grouped = (
+            df["burnout_level"].eq("high")
+            .groupby(df[policy_col])
+            .mean() * 100
+        ).sort_values()
 
-    # Tamanho das categorias
-    try:
-        counts = df[policy_col].value_counts(normalize=True) * 100
-        if counts.iloc[0] > 70:
-            insights.append(f"A categoria **{counts.index[0]}** representa >70% dos respondentes; resultados podem estar enviesados.")
-    except Exception:
-        pass
+        if len(grouped) > 1:
+            best = grouped.index[0]
+            worst = grouped.index[-1]
+            insights.append(
+                f"A política **{best}** apresenta o **menor burnout** (**{grouped.iloc[0]:.1f}%**), enquanto **{worst}** tem o **maior risco** (**{grouped.iloc[-1]:.1f}%**)."
+            )
+
+    # Se uma política domina os dados (>70%)
+    dist = df[policy_col].value_counts(normalize=True) * 100
+    if dist.iloc[0] > 70:
+        insights.append(
+            f"A categoria **{dist.index[0]}** domina os dados (**{dist.iloc[0]:.1f}%**), o que pode enviesar interpretações."
+        )
 
     return insights

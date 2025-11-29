@@ -1,36 +1,33 @@
-# insights/segments.py
 def insights_segments(df):
+    if df is None or len(df) < 5 or "segment" not in df:
+        return ["Dados insuficientes para gerar insights sobre segmentos."]
+
     insights = []
-    if df is None or len(df) == 0 or 'segment' not in df.columns:
-        return ["Nenhum dado disponível para gerar insights sobre segmentos."]
 
-    # Segmento com maior estresse médio
-    try:
-        stress = df.groupby("segment")["stress_score"].mean().dropna().sort_values()
-        if len(stress) > 0:
-            worst = stress.index[-1]
-            insights.append(f"O segmento **{worst}** tem o maior estresse médio (**{stress.iloc[-1]:.1f}**).")
-    except Exception:
-        pass
+    # Estresse por segmento
+    stress = df.groupby("segment")["stress_score"].mean().sort_values()
+    insights.append(
+        f"O segmento com maior estresse médio é **{stress.index[-1]}** (**{stress.iloc[-1]:.1f}**)."
+    )
 
-    # Segmento com maior proporção de burnout alto (se disponível)
-    if 'burnout_level' in df.columns:
-        try:
-            high = (df['burnout_level'] == 'high')
-            pct = (high.groupby(df['segment']).mean() * 100).dropna().sort_values()
-            if len(pct) > 0:
-                worst_b = pct.index[-1]
-                insights.append(f"O segmento com maior % de burnout alto é **{worst_b}** (**{pct.iloc[-1]:.1f}%**).")
-        except Exception:
-            pass
+    # Burnout por segmento
+    if "burnout_level" in df.columns:
+        burn = (
+            df["burnout_level"].eq("high")
+            .groupby(df["segment"])
+            .mean() * 100
+        ).sort_values()
 
-    # Amostra mínima por segmento (alerta)
-    try:
-        n_by_seg = df['segment'].value_counts()
-        small = n_by_seg[n_by_seg < 15]
-        if len(small) > 0:
-            insights.append(f"Alguns segmentos têm pouca amostra (ex.: {', '.join(small.index[:3].astype(str))}); trate com cautela.")
-    except Exception:
-        pass
+        insights.append(
+            f"O maior burnout alto ocorre em **{burn.index[-1]}** (**{burn.iloc[-1]:.1f}%**)."
+        )
+
+    # Aviso de amostra pequena
+    n_seg = df["segment"].value_counts()
+    small = n_seg[n_seg < 15]
+    if len(small) > 0:
+        insights.append(
+            f"Alguns segmentos têm **amostra reduzida** (ex.: {', '.join(small.index[:3])}), reduzindo a precisão da análise."
+        )
 
     return insights

@@ -222,13 +222,10 @@ with col3:
         avg_hours = df_filtered['hours_per_week'].mean()
         st.metric("Horas/Sem Média Geral", f"{avg_hours:.1f}h")
 
-insights = insights_segments(df_filtered)
-formatted = "<ul>" + "".join([f"<li>{i}</li>" for i in insights]) + "</ul>"
-
-insight_box(
-    title="🧩 Insights Automáticos: Perfis & Segmentos",
-    content=formatted
-)
+# ====================================
+# INSIGHTS
+# ====================================
+insight_box("🔥 Insights Automáticos de Burnout", insights_segments(df_filtered))
 
 # ====================================
 # FOOTER
