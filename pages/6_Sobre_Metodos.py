@@ -2,192 +2,179 @@ import streamlit as st
 import pandas as pd
 from utils.data_io import load_data
 
-st.set_page_config(page_title="Sobre & Métodos — SR2", page_icon="ℹ️", layout="wide")
+st.set_page_config(
+    page_title="Sobre & Métodos — SR2",
+    page_icon="ℹ️",
+    layout="wide"
+)
 
-st.title("ℹ️ Sobre & Métodos")
+# ======================================================
+# HEADER — IDENTIDADE VISUAL
+# ======================================================
+st.markdown("""
+<div style="
+    padding: 22px; 
+    border-radius: 12px;
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    border: 1px solid #334155;
+    margin-bottom: 25px;
+">
+    <h1 style="margin:0; color:#93c5fd;">ℹ️ Sobre & Métodos</h1>
+    <p style="margin:0; color:#e2e8f0; font-size:15px;">
+        Documentação oficial do dashboard — metodologia, dados, decisões analíticas e referências do projeto.
+    </p>
+</div>
+""", unsafe_allow_html=True)
 
-# ============================
-# Resumo Automático (C9)
-# ============================
-
-st.subheader("📝 Resumo Automático do Dashboard")
+# ======================================================
+# RESUMO AUTOMÁTICO
+# ======================================================
+st.subheader("📝 Resumo da Base de Dados Utilizada")
 
 df = load_data()
 
 if df is None or df.empty:
     st.warning("Não foi possível gerar o resumo automático. O dataset está vazio.")
 else:
-    # -------- NORMALIZAÇÃO DAS MODALIDADES DE TRABALHO -------- #
-    # Converte valores variados para 3 categorias finais:
-    # remote / hybrid / onsite
-    map_modes = {
-        "remote": "remote",
-        "yes": "remote",
-
-        "hybrid": "hybrid",
-
-        "office": "onsite",
-        "onsite": "onsite",
-        "no": "onsite"
-    }
-
-    df["work_mode_norm"] = (
-        df["work_mode"]
-        .astype(str)
-        .str.strip()
-        .str.lower()
-        .map(map_modes)
-        .fillna("unknown")
-    )
-
-    # Quantidade de respondentes
     total = len(df)
-
-    # Modalidades normalizadas
-    modalidades = df["work_mode_norm"].value_counts()
-
-    # Média geral de estresse
     stress_mean = df["stress_score"].mean()
-
-    # Horas semanais
     hours_mean = df["hours_per_week"].mean()
 
-    # Burnout (se existir)
-    burnout_info = ""
     if "burnout_level" in df.columns:
-        counts = df["burnout_level"].value_counts(normalize=True) * 100
-        burnout_info = (
-            f"- **{counts.get('high', 0):.1f}%** apresentam *alto burnout*\n"
-            f"- **{counts.get('medium', 0):.1f}%** burnout moderado\n"
-        )
+        pct_high = (df["burnout_level"].eq("high").mean() * 100)
+    else:
+        pct_high = None
 
-    resumo = f"""
-### 📌 Principais Achados dos Dados
+    st.info(f"""
+### 📌 Panorama Geral dos Dados
 
-Com base nos dados integrados utilizados no dashboard:
-
-- O dataset contém **{total} respondentes** provenientes de diferentes fontes.
-- A distribuição das modalidades de trabalho é:
-    - **{modalidades.get('remote', 0)}** trabalhadores remotos  
-    - **{modalidades.get('hybrid', 0)}** trabalhadores híbridos  
-    - **{modalidades.get('onsite', 0)}** trabalhadores presenciais  
-- O nível médio de estresse geral é **{stress_mean:.2f}**.
-- A carga horária semanal média aproximada é de **{hours_mean:.1f} horas**.
-
-### 🔥 Indicadores Gerais de Burnout
-{burnout_info or "- O dataset não possui a variável `burnout_level`."}
-
-Esses resultados fornecem o contexto necessário para entender as análises detalhadas apresentadas nas páginas seguintes.
-"""
-
-    st.info(resumo)
-
+- Total de respondentes integrados: **{total}**
+- Estresse médio geral: **{stress_mean:.2f}**
+- Horas semanais médias: **{hours_mean:.1f}h**
+- % de burnout alto: **{pct_high:.1f}%**  
+  """)
 
 # ======================================================
-# Página fixa (metodologia, dados, storytelling etc.)
+# PROBLEMA / QUESTÕES
 # ======================================================
-
 st.markdown("""
-### 🎯 Problema & Perguntas de Negócio
+---
+### 🎯 Problema e Perguntas de Pesquisa
 
-**Problema**: 
-TODO: Descreva o problema de negócio que o dashboard aborda.
+**Problema central**  
+Organizações enfrentam aumento de estresse e burnout no trabalho, mas carecem de visão integrada sobre *quem são os grupos de risco* e *quais fatores organizacionais mais influenciam esse cenário*.
 
-*Exemplo*: Como a transição para trabalho remoto/híbrido impactou a saúde mental 
-dos trabalhadores? Quais fatores organizacionais podem mitigar o burnout?
-
-**Perguntas de Pesquisa**:
-1. TODO: Primeira pergunta que o dashboard responde
-2. TODO: Segunda pergunta que o dashboard responde
-3. TODO: Terceira pergunta que o dashboard responde
-4. TODO: Quarta pergunta que o dashboard responde (opcional)
-5. TODO: Quinta pergunta que o dashboard responde (opcional)
+**Perguntas que guiamos no projeto:**
+1. Quais segmentos apresentam maior risco de burnout?
+2. A carga horária semanal influencia diretamente o estresse?
+3. Modalidade de trabalho (remoto/híbrido/presencial) impacta o bem-estar?
+4. Políticas organizacionais estão associadas a menor risco?
+5. Como diferentes dimensões (cargo, horas, departamento, política) interagem?
 
 ---
+""")
 
+# ======================================================
+# DADOS E PREPARAÇÃO
+# ======================================================
+st.markdown("""
 ### 📊 Dados & Preparação
 
-**Fontes dos Dados**:
+**Fontes integradas no projeto:**
+- `dataset_principal.csv` — saúde mental, hábitos e características individuais  
+- `dataset_burnout.csv` — níveis de estresse e burnout  
+- `dataset_workplace.csv` — modalidades de trabalho, satisfação, políticas  
 
-TODO: Descreva as fontes dos dados
+**Principais etapas de preparação:**
+- Normalização de `work_mode` → remoto / híbrido / presencial  
+- Padronização de cargos e segmentos  
+- Conversão de estresse para escala 0–10  
+- Criação da variável categórica `burnout_level`  
+- Unificação dos 3 datasets com chaves compatíveis  
+- Remoção de entradas inválidas e excesso de nulos  
 
-*Template*:
-- **Dataset Principal** – Saúde mental no trabalho  
-- **Dataset Burnout** – Burnout e estresse ocupacional  
-- **Dataset Workplace** – Ambiente, políticas e satisfação  
-
-**Limpeza e Tratamento**:
-- Normalização de colunas (role, work_mode, stress_score)
-- Conversão de categorias de estresse
-- Criação de burnout_level
-- Remoção de valores ausentes críticos
-
-**Limitações**:
-- Dados auto-reportados
-- Diferenças entre datasets
-- Ausência de dados longitudinais
-- Possível não representatividade
-
+**Limitações da base:**
+- Dados auto-reportados → viés de percepção  
+- Diferenças de estrutura entre datasets  
+- Amostras pequenas em alguns segmentos  
+- Não há dados longitudinais (não medimos mudança no tempo)  
 ---
-
-### 🔬 Metodologias
-
-#### CRISP-DM
-- Entendimento do Negócio  
-- Entendimento dos Dados  
-- Preparação  
-- Modelagem / Visualização  
-- Avaliação  
-- Deploy  
-
-#### Storytelling com Dados
-- Narrativa clara  
-- Gráficos com títulos interpretativos  
-- Destaques de insights  
-- Paleta consistente  
-
-#### Design do Dashboard
-- Foco no usuário  
-- KPIs no topo  
-- Comparações diretas  
-- Interatividade (Plotly)  
-- Responsividade (wide layout)  
-
----
-
-### 👥 Time & Artefatos
-
-**Equipe**:
-- Bruno Maciel (GitHub: @Bruno-fmaciel)
-- Camila Oliveira
-
-**Artefatos do Projeto**:
 """)
+
+# ======================================================
+# METODOLOGIAS
+# ======================================================
+st.markdown("""
+### 🔬 Metodologias Utilizadas
+
+#### ✔ CRISP-DM (Adaptado)
+1. Entendimento do negócio  
+2. Entendimento dos dados  
+3. Preparação da base integrada  
+4. Modelagem visual (dashboards e KPIs)  
+5. Avaliação de hipóteses  
+6. Deploy (Streamlit Cloud)
+
+#### ✔ Storytelling com Dados
+- Títulos que comunicam a “mensagem” do gráfico  
+- Comparações diretas entre grupos  
+- Destaque a riscos e tendências  
+- Priorização de KPIs no topo
+
+#### ✔ Boas práticas de design de dashboards
+- Layout horizontal (wide)  
+- Gráficos interativos com Plotly  
+- Uso consistente de cores  
+- Cartões de KPI  
+- Insights automáticos por página  
+
+---
+""")
+
+# ======================================================
+# TIME / LINKS
+# ======================================================
+st.markdown("### 👥 Time & Artefatos do Projeto")
 
 col1, col2 = st.columns(2)
 
 with col1:
     st.markdown("""
-#### 🔗 Links Principais
-- **Repositório GitHub**: https://github.com/Bruno-fmaciel/mental-health-dashboard
-- **Dashboard**: TODO
-- **Slides**: TODO
+**Devs:**
+- Bruno Maciel (GTI – SR2)
+- Camila Oliveira
+
+**Equipe:**
+- Maria Clara Medeiros
+- Yuri Tavares
+- Rodrigo Lyra
+- Artur Tavares
+
+**Código-fonte & Documentação:**
+- GitHub: https://github.com/Bruno-fmaciel/mental-health-dashboard
+- README do projeto:https://github.com/Bruno-fmaciel/mental-health-dashboard/blob/main/README.md
 """)
 
 with col2:
     st.markdown("""
-#### 📚 Recursos
-- Google Site: TODO
-- Documentação: README
-- Licença: MIT
+**Artefatos:**
+- Dashboard Online: *Adicionar link do Streamlit Cloud*
+- Google Site: https://sites.google.com/cesar.school/gti-2025-2-projetos-5-grupo-6/in%C3%ADcio
+- Slides da Apresentação: *(Adicionar link aqui)*
 """)
 
-st.divider()
-
+# ======================================================
+# REFERÊNCIAS
+# ======================================================
 st.markdown("""
-### 📖 Referências
+---
+### 📖 Referências Bibliográficas
 
-TODO: Adicione as referências bibliográficas utilizadas
+- Davenport, T. (2022). *Workforce Well-being and Burnout Research.*  
+- WHO – World Health Organization. *Burn-out an "occupational phenomenon".*  
+- Few, S. (2013). *Information Dashboard Design.*  
+- Cole Nussbaumer Knaflic. (2015). *Storytelling with Data.*  
+- Projeto SR2 — Material de Aula (CESAR School – GTI)
+
+---
 """)
-
-st.info("💡 Atualize esta página conforme o projeto evolui. Ela é essencial para o SR2!")
