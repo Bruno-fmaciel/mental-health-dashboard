@@ -1,12 +1,11 @@
 import streamlit as st
 from utils.data_io import load_data, render_sidebar
 from utils.theming import set_page_theme
-from utils.charts import kpi_cards
 from utils.charts import (
-    stress_distribution_premium,
-    hours_vs_stress_premium,
-    burnout_segments_premium,
-    risk_heatmap_premium
+    make_overview_kpi_cards,
+    plot_stress_distribution_histogram,
+    plot_burnout_level_composition,
+    plot_core_correlation_heatmap
 )
 
 # ============================
@@ -31,86 +30,49 @@ if filtered.empty:
     st.stop()
 
 # ============================
-# HEADER — HERO SECTION
+# HERO SECTION
 # ============================
-st.markdown(
-    """
-<div style="
-    padding: 20px 15px;
-    border-radius: 14px;
-    background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
-    border: 1px solid rgba(255,255,255,0.07);
-    margin-bottom: 2rem;
-">
-    <h1 style="margin: 0; font-size: 2.6rem; color: #4A90E2;">🧠 Saúde Mental no Trabalho</h1>
-    <p style="color:#d1d5db; font-size:1.1rem; margin-top:8px;">
-        Panorama geral de estresse, burnout e carga horária no ambiente de trabalho. 
-        Explore padrões, identifique grupos de risco e apoie decisões baseadas em dados.
-    </p>
-</div>
-""",
-    unsafe_allow_html=True,
-)
+st.title("Panorama da Saúde Mental")
+st.caption("Resumo geral de estresse, burnout e carga de trabalho neste conjunto de dados.")
 
 # ============================
-# KPIs — PAINEL PRINCIPAL
+# KPIs ROW
 # ============================
-st.subheader("📊 Indicadores Globais")
-st.caption("Panorama geral dos principais indicadores. Use os filtros na barra lateral para explorar diferentes grupos e identificar padrões de risco.")
+n, stress_mean, burnout_high_pct, hours_mean = make_overview_kpi_cards(filtered)
 
-kpi_cards(filtered, df)
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    st.metric("Respondentes", f"{n:,}")
+
+with col2:
+    st.metric("Estresse Médio", f"{stress_mean:.1f}")
+
+with col3:
+    st.metric("% Burnout Alto", f"{burnout_high_pct:.1f}%")
+
+with col4:
+    st.metric("Horas/Semana", f"{hours_mean:.1f}h")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ============================
-# GRÁFICOS 
+# BLOCK 1: TWO COLUMNS
 # ============================
-st.subheader("📈 Insights Visuais")
-
 col1, col2 = st.columns(2)
 
-# --- GRÁFICO 1: DISTRIBUIÇÃO DE ESTRESSE ---
 with col1:
-    st.markdown("#### 😰 Distribuição de Estresse")
-    st.caption("Distribuição do nível de estresse no conjunto de dados. Valores mais altos indicam maior estresse relatado.")
-    st.plotly_chart(stress_distribution_premium(filtered), use_container_width=True)
+    st.plotly_chart(plot_stress_distribution_histogram(filtered), use_container_width=True)
 
-# --- GRÁFICO 2: HORAS × ESTRESSE ---
 with col2:
-    st.markdown("#### ⏰ Carga Horária × Estresse")
-    st.caption("Relação entre horas trabalhadas por semana e nível de estresse. Neste conjunto de dados, observe se há associação entre essas variáveis.")
-    st.plotly_chart(hours_vs_stress_premium(filtered), use_container_width=True)
+    st.plotly_chart(plot_burnout_level_composition(filtered), use_container_width=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-
 # ============================
-# SEGMENTOS
+# BLOCK 2: FULL-WIDTH HEATMAP
 # ============================
-if "segment" in filtered.columns and "burnout_level" in filtered.columns:
-    st.subheader("🔥 Análise de Segmentos Críticos")
-    st.caption("Comparação dos segmentos com maior risco de burnout. Segmentos com maior percentual de burnout alto requerem atenção prioritária.")
-
-    st.plotly_chart(
-        burnout_segments_premium(filtered),
-        use_container_width=True
-    )
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-# ============================
-# HEATMAP DE RISCO
-# ============================
-if "work_mode" in filtered.columns:
-    st.subheader("🌡 Heatmap de Correlações")
-    st.caption("Mapa de correlações entre indicadores numéricos. Valores próximos de +1 ou -1 indicam associações mais fortes neste conjunto de dados.")
-
-    st.plotly_chart(
-        risk_heatmap_premium(filtered),
-        use_container_width=True
-    )
-
-st.markdown("<br>", unsafe_allow_html=True)
+st.plotly_chart(plot_core_correlation_heatmap(filtered), use_container_width=True)
 
 # ============================
 # FOOTER

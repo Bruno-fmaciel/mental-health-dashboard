@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 from typing import Optional
 
-
 @st.cache_data(show_spinner=False)
 def load_data(path: Optional[str] = None) -> pd.DataFrame:
     """Carrega dados a partir de CSV(s).
@@ -128,6 +127,23 @@ def _normalize_columns(df: pd.DataFrame, filepath: str) -> pd.DataFrame:
         })
 
 
+    # ============================================
+    # Add derived columns: hours_band and burnout_numeric
+    # ============================================
+    if 'hours_per_week' in df.columns:
+        df['hours_band'] = pd.cut(
+            df['hours_per_week'],
+            bins=[0, 35, 45, 100],
+            labels=['<35h', '35–45h', '>45h']
+        )
+    
+    if 'burnout_level' in df.columns:
+        df['burnout_numeric'] = df['burnout_level'].map({
+            'low': 1,
+            'medium': 2,
+            'high': 3
+        }).fillna(2)
+    
     return df
 
 
@@ -151,7 +167,6 @@ def render_sidebar(df: pd.DataFrame, show_segment_filter: bool = False) -> pd.Da
     # BLOCO 1: 👥 QUEM VOCÊ QUER ANALISAR?
     # =====================================
     st.sidebar.subheader("👥 Quem você quer analisar?")
-    st.sidebar.caption("Escolha o perfil dos profissionais. Diferentes cargos e segmentos podem apresentar padrões distintos de estresse e burnout.")
     
     # Obtém valores únicos para os filtros
     roles = sorted(df['role'].dropna().unique()) if 'role' in df.columns else []
@@ -185,16 +200,14 @@ def render_sidebar(df: pd.DataFrame, show_segment_filter: bool = False) -> pd.Da
     # BLOCO 2: 💼 COMO ESSAS PESSOAS TRABALHAM?
     # =====================================
     st.sidebar.divider()
-    st.sidebar.subheader("💼 Como essas pessoas trabalham?")
-    st.sidebar.caption("A modalidade de trabalho pode influenciar o equilíbrio vida-trabalho e o risco de burnout. Compare presencial, remoto e híbrido.")
-    
+    st.sidebar.subheader("💼 Como essas pessoas trabalham?")    
     work_modes = sorted(df['work_mode'].dropna().unique()) if 'work_mode' in df.columns else []
     
     sel_modes = st.sidebar.multiselect(
         "Modalidade de Trabalho",
         work_modes,
         default=work_modes,  # TODOS selecionados por padrão
-        help="Remoto pode aumentar isolamento social; presencial pode gerar estresse por deslocamento; híbrido pode criar sobrecarga de transição. Use para comparar padrões.",
+        help="A modalidade de trabalho pode influenciar o equilíbrio vida-trabalho e o risco de burnout. Remoto pode aumentar isolamento social; presencial pode gerar estresse por deslocamento; híbrido pode criar sobrecarga de transição. Use para comparar padrões.",
         key="filter_modes"
     )
     
@@ -203,7 +216,6 @@ def render_sidebar(df: pd.DataFrame, show_segment_filter: bool = False) -> pd.Da
     # =====================================
     st.sidebar.divider()
     st.sidebar.subheader("⏱️ Qual a carga de trabalho?")
-    st.sidebar.caption("Longas jornadas (>40h/semana) são um fator de risco conhecido para burnout. Filtre para identificar grupos mais vulneráveis.")
     
     # Slider de horas por semana
     if 'hours_per_week' in df.columns and df['hours_per_week'].notna().any():
@@ -214,7 +226,7 @@ def render_sidebar(df: pd.DataFrame, show_segment_filter: bool = False) -> pd.Da
             min_value=min_h,
             max_value=max_h,
             value=(min_h, max_h),  # Range completo por padrão
-            help="Horas trabalhadas por semana. Valores acima de 40-45h estão associados a maior risco de esgotamento, estresse crônico e problemas de saúde mental.",
+            help="Horas trabalhadas por semana. Valores acima de 40-45h estão associados a maior risco de esgotamento, estresse crônico e problemas de saúde mental. Filtre para identificar grupos mais vulneráveis.",
             key="hours_filter"
         )
     else:

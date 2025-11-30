@@ -1,3 +1,7 @@
+"""
+Chart functions using Plotly Express for the mental health dashboard.
+All functions return Plotly Figure objects for use with st.plotly_chart().
+"""
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
@@ -5,61 +9,691 @@ import pandas as pd
 import streamlit as st
 import textwrap
 
-def kpi_cards(df_filtered, df_total):
+# ============================================================================
+# COLOR SEMANTICS: Higher risk → red-ish, Lower risk → green-ish
+# ============================================================================
+COLOR_HIGH_RISK = '#FF6B6B'  # Red
+COLOR_MEDIUM_RISK = '#FFE66D'  # Yellow
+COLOR_LOW_RISK = '#4ECDC4'  # Green/Teal
+COLOR_NEUTRAL = '#60a5fa'  # Blue
 
-    # ============================================
-    # 1. Proteção contra DF vazio
-    # ============================================
+BURNOUT_COLOR_MAP = {
+    'high': COLOR_HIGH_RISK,
+    'medium': COLOR_MEDIUM_RISK,
+    'low': COLOR_LOW_RISK
+}
+
+
+# ============================================================================
+# OVERVIEW PAGE FUNCTIONS (1_Visao_Geral.py)
+# ============================================================================
+
+def make_overview_kpi_cards(df):
+    """Returns 4 KPIs: number of respondents, average stress score, % high burnout, average hours per week."""
+    if df.empty:
+        return None, None, None, None
+    
+    n = len(df)
+    stress_mean = df["stress_score"].mean() if "stress_score" in df.columns else 0
+    burnout_high_pct = (df["burnout_level"] == "high").mean() * 100 if "burnout_level" in df.columns else 0
+    hours_mean = df["hours_per_week"].mean() if "hours_per_week" in df.columns else 0
+    
+    return n, stress_mean, burnout_high_pct, hours_mean
+
+
+def plot_stress_distribution_histogram(df):
+    """Uses px.histogram with x=stress_score, appropriate bins, optional marginal."""
+    if df.empty or 'stress_score' not in df.columns:
+        return go.Figure()
+    
+    fig = px.histogram(
+        df,
+        x='stress_score',
+        nbins=20,
+        marginal='box',
+        title="Distribuição de estresse",
+        labels={'stress_score': 'Score de Estresse', 'count': 'Frequência'},
+        color_discrete_sequence=[COLOR_NEUTRAL]
+    )
+    fig.update_layout(
+        xaxis_title="Score de Estresse",
+        yaxis_title="Número de Respondentes",
+        showlegend=False
+    )
+    return fig
+
+
+def plot_burnout_level_composition(df):
+    """Uses px.bar or px.pie/donut to show proportion of burnout levels."""
+    if df.empty or 'burnout_level' not in df.columns:
+        return go.Figure()
+    
+    burnout_counts = df['burnout_level'].value_counts()
+    burnout_df = pd.DataFrame({
+        'burnout_level': burnout_counts.index,
+        'count': burnout_counts.values
+    })
+    
+    # Use pie chart for composition
+    fig = px.pie(
+        burnout_df,
+        values='count',
+        names='burnout_level',
+        title="Níveis de burnout",
+        color='burnout_level',
+        color_discrete_map=BURNOUT_COLOR_MAP,
+        category_orders={'burnout_level': ['low', 'medium', 'high']}
+    )
+    fig.update_traces(textposition='inside', textinfo='percent+label')
+    return fig
+
+
+def plot_core_correlation_heatmap(df):
+    """Compute correlation matrix for numeric variables and use px.imshow."""
+    if df.empty:
+        return go.Figure()
+    
+    # Select only numeric columns relevant for correlation
+    numeric_cols = []
+    if 'stress_score' in df.columns:
+        numeric_cols.append('stress_score')
+    if 'hours_per_week' in df.columns:
+        numeric_cols.append('hours_per_week')
+    
+    # Add burnout_numeric if available, or create it
+    if 'burnout_level' in df.columns:
+        df = df.copy()
+        df['burnout_numeric'] = df['burnout_level'].map({'low': 1, 'medium': 2, 'high': 3}).fillna(2)
+        numeric_cols.append('burnout_numeric')
+    
+    if len(numeric_cols) < 2:
+        return go.Figure()
+    
+    corr_df = df[numeric_cols].corr()
+    
+    fig = px.imshow(
+        corr_df,
+        text_auto=True,
+        color_continuous_scale='RdBu_r',
+        aspect='auto',
+        title="Correlação entre variáveis-chave",
+        labels=dict(color="Correlação")
+    )
+    fig.update_layout(
+        xaxis_title="",
+        yaxis_title=""
+    )
+    return fig
+
+
+# ============================================================================
+# BURNOUT PAGE FUNCTIONS (pages/2_Burnout.py)
+# ============================================================================
+
+def make_burnout_kpi_cards(df):
+    """Returns KPIs: % high burnout, average stress_score, average hours_per_week."""
+    if df.empty:
+        return None, None, None
+    
+    burnout_high_pct = (df["burnout_level"] == "high").mean() * 100 if "burnout_level" in df.columns else 0
+    stress_mean = df["stress_score"].mean() if "stress_score" in df.columns else 0
+    hours_mean = df["hours_per_week"].mean() if "hours_per_week" in df.columns else 0
+    
+    return burnout_high_pct, stress_mean, hours_mean
+
+
+def plot_hours_vs_stress_scatter(df):
+    """Uses px.scatter with x=hours_per_week, y=stress_score, trendline='ols', optional color by work_mode."""
+    if df.empty or not all(col in df.columns for col in ['hours_per_week', 'stress_score']):
+        return go.Figure()
+    
+    color_col = 'work_mode' if 'work_mode' in df.columns else None
+    
+    fig = px.scatter(
+        df,
+        x='hours_per_week',
+        y='stress_score',
+        color=color_col,
+        trendline='ols',
+        title="Horas de trabalho × Estresse",
+        labels={
+            'hours_per_week': 'Horas por Semana',
+            'stress_score': 'Score de Estresse'
+        }
+    )
+    fig.update_layout(
+        xaxis_title="Horas por Semana",
+        yaxis_title="Score de Estresse"
+    )
+    return fig
+
+
+def plot_stress_by_hours_band(df):
+    """Uses px.violin or px.box with x=hours_band, y=stress_score."""
+    if df.empty or 'hours_per_week' not in df.columns or 'stress_score' not in df.columns:
+        return go.Figure()
+    
+    df = df.copy()
+    # Create hours_band if not exists
+    if 'hours_band' not in df.columns:
+        df['hours_band'] = pd.cut(
+            df['hours_per_week'],
+            bins=[0, 35, 45, 100],
+            labels=['<35h', '35–45h', '>45h']
+        )
+    
+    fig = px.violin(
+        df,
+        x='hours_band',
+        y='stress_score',
+        box=True,
+        points='all',
+        title="Estresse por faixa de horas",
+        labels={
+            'hours_band': 'Faixa de Horas',
+            'stress_score': 'Score de Estresse'
+        },
+        color_discrete_sequence=[COLOR_NEUTRAL]
+    )
+    fig.update_layout(
+        xaxis_title="Faixa de Horas",
+        yaxis_title="Score de Estresse"
+    )
+    return fig
+
+
+def plot_roles_burnout_ranking(df):
+    """Aggregate by role, compute % high burnout, use px.bar horizontal sorted descending."""
+    if df.empty or 'role' not in df.columns or 'burnout_level' not in df.columns:
+        return go.Figure()
+    
+    # Calculate high burnout rate per role
+    role_stats = df.groupby('role').agg({
+        'burnout_level': lambda x: (x == 'high').mean() * 100,
+        'role': 'count'
+    }).rename(columns={'burnout_level': 'high_burnout_rate', 'role': 'n'})
+    
+    # Filter out roles with tiny N (less than 5)
+    role_stats = role_stats[role_stats['n'] >= 5]
+    
+    if role_stats.empty:
+        return go.Figure()
+    
+    role_stats = role_stats.sort_values('high_burnout_rate', ascending=True).reset_index()
+    
+    fig = px.bar(
+        role_stats,
+        x='high_burnout_rate',
+        y='role',
+        orientation='h',
+        title="Cargos com maior risco de burnout",
+        labels={
+            'high_burnout_rate': '% Burnout Alto',
+            'role': 'Cargo'
+        },
+        color='high_burnout_rate',
+        color_continuous_scale='Reds'
+    )
+    fig.update_layout(
+        xaxis_title="% Burnout Alto",
+        yaxis_title="Cargo",
+        coloraxis_showscale=False
+    )
+    return fig
+
+
+# ============================================================================
+# ENVIRONMENT PAGE FUNCTIONS (pages/3_Ambiente_Trabalho.py)
+# ============================================================================
+
+def make_environment_kpi_cards(df):
+    """Returns KPIs: number of distinct policies, overall % high burnout, overall average stress_score."""
+    if df.empty:
+        return None, None, None
+    
+    n_policies = df['policy'].nunique() if 'policy' in df.columns else 0
+    burnout_high_pct = (df["burnout_level"] == "high").mean() * 100 if "burnout_level" in df.columns else 0
+    stress_mean = df["stress_score"].mean() if "stress_score" in df.columns else 0
+    
+    return n_policies, burnout_high_pct, stress_mean
+
+
+def plot_burnout_distribution_by_policy(df):
+    """For each policy, compute proportion of burnout levels. Use px.bar with barmode='stack'."""
+    if df.empty or 'policy' not in df.columns or 'burnout_level' not in df.columns:
+        return go.Figure()
+    
+    # Group by policy and burnout_level
+    policy_burnout = df.groupby(['policy', 'burnout_level']).size().reset_index(name='count')
+    policy_totals = df.groupby('policy').size().reset_index(name='total')
+    policy_burnout = policy_burnout.merge(policy_totals, on='policy')
+    policy_burnout['proportion'] = (policy_burnout['count'] / policy_burnout['total'] * 100).round(1)
+    
+    # Filter policies with minimum sample size
+    policy_burnout = policy_burnout[policy_burnout['total'] >= 5]
+    
+    if policy_burnout.empty:
+        return go.Figure()
+    
+    fig = px.bar(
+        policy_burnout,
+        x='policy',
+        y='proportion',
+        color='burnout_level',
+        barmode='stack',
+        title="Distribuição de burnout por política",
+        labels={
+            'policy': 'Política',
+            'proportion': '% de Respondentes',
+            'burnout_level': 'Nível de Burnout'
+        },
+        color_discrete_map=BURNOUT_COLOR_MAP,
+        category_orders={'burnout_level': ['low', 'medium', 'high']}
+    )
+    fig.update_layout(
+        xaxis_title="Política",
+        yaxis_title="% de Respondentes"
+    )
+    return fig
+
+
+def plot_policy_burnout_ranking(df):
+    """Aggregate by policy, compute high_burnout_rate, use px.bar horizontal sorted descending."""
+    if df.empty or 'policy' not in df.columns or 'burnout_level' not in df.columns:
+        return go.Figure()
+    
+    policy_stats = df.groupby('policy').agg({
+        'burnout_level': lambda x: (x == 'high').mean() * 100,
+        'policy': 'count'
+    }).rename(columns={'burnout_level': 'high_burnout_rate', 'policy': 'n'})
+    
+    # Filter out policies with tiny N
+    policy_stats = policy_stats[policy_stats['n'] >= 5]
+    
+    if policy_stats.empty:
+        return go.Figure()
+    
+    policy_stats = policy_stats.sort_values('high_burnout_rate', ascending=True).reset_index()
+    
+    fig = px.bar(
+        policy_stats,
+        x='high_burnout_rate',
+        y='policy',
+        orientation='h',
+        title="Políticas com maior % de burnout alto",
+        labels={
+            'high_burnout_rate': '% Burnout Alto',
+            'policy': 'Política'
+        },
+        color='high_burnout_rate',
+        color_continuous_scale='Reds'
+    )
+    fig.update_layout(
+        xaxis_title="% Burnout Alto",
+        yaxis_title="Política",
+        coloraxis_showscale=False
+    )
+    return fig
+
+
+def make_policy_summary_table(df):
+    """Returns summary dataframe: [policy_name, N, average_stress, high_burnout_rate]."""
+    if df.empty or 'policy' not in df.columns:
+        return pd.DataFrame()
+    
+    summary = df.groupby('policy').agg({
+        'policy': 'count',
+        'stress_score': 'mean',
+        'burnout_level': lambda x: (x == 'high').mean() * 100
+    }).rename(columns={
+        'policy': 'N',
+        'stress_score': 'average_stress',
+        'burnout_level': 'high_burnout_rate'
+    }).reset_index()
+    
+    summary.columns = ['policy_name', 'N', 'average_stress', 'high_burnout_rate']
+    summary = summary.sort_values('high_burnout_rate', ascending=False)
+    
+    return summary
+
+
+# ============================================================================
+# WORK MODES PAGE FUNCTIONS (pages/4_Remoto_Hibrido.py)
+# ============================================================================
+
+def make_workmode_kpi_cards(df):
+    """Summarize per work_mode (remote, hybrid, onsite)."""
+    if df.empty or 'work_mode' not in df.columns:
+        return {}
+    
+    workmode_stats = df.groupby('work_mode').agg({
+        'burnout_level': lambda x: (x == 'high').mean() * 100,
+        'stress_score': 'mean',
+        'hours_per_week': 'mean',
+        'work_mode': 'count'
+    }).rename(columns={
+        'burnout_level': 'high_burnout_pct',
+        'stress_score': 'avg_stress',
+        'hours_per_week': 'avg_hours',
+        'work_mode': 'n'
+    })
+    
+    return workmode_stats.to_dict('index')
+
+
+def plot_stress_by_workmode(df):
+    """Uses px.violin or px.box with x=work_mode, y=stress_score."""
+    if df.empty or 'work_mode' not in df.columns or 'stress_score' not in df.columns:
+        return go.Figure()
+    
+    fig = px.violin(
+        df,
+        x='work_mode',
+        y='stress_score',
+        box=True,
+        points='all',
+        title="Estresse por modalidade de trabalho",
+        labels={
+            'work_mode': 'Modalidade',
+            'stress_score': 'Score de Estresse'
+        },
+        color='work_mode',
+        color_discrete_sequence=[COLOR_NEUTRAL, '#4ECDC4', '#FFE66D']
+    )
+    fig.update_layout(
+        xaxis_title="Modalidade de Trabalho",
+        yaxis_title="Score de Estresse",
+        showlegend=False
+    )
+    return fig
+
+
+def plot_burnout_by_workmode(df):
+    """Aggregate by work_mode, compute high_burnout_rate, use px.bar."""
+    if df.empty or 'work_mode' not in df.columns or 'burnout_level' not in df.columns:
+        return go.Figure()
+    
+    workmode_stats = df.groupby('work_mode').agg({
+        'burnout_level': lambda x: (x == 'high').mean() * 100
+    }).rename(columns={'burnout_level': 'high_burnout_rate'}).reset_index()
+    
+    fig = px.bar(
+        workmode_stats,
+        x='work_mode',
+        y='high_burnout_rate',
+        title="Burnout alto por modalidade",
+        labels={
+            'work_mode': 'Modalidade',
+            'high_burnout_rate': '% Burnout Alto'
+        },
+        color='high_burnout_rate',
+        color_continuous_scale='Reds'
+    )
+    fig.update_layout(
+        xaxis_title="Modalidade de Trabalho",
+        yaxis_title="% Burnout Alto",
+        coloraxis_showscale=False
+    )
+    return fig
+
+
+def plot_workmode_delta_heatmap(df, segment_dim, delta_type):
+    """
+    Compute deltas in high_burnout_rate between work modes for each segment.
+    delta_type: 'Remoto − Híbrido', 'Remoto − Presencial', 'Híbrido − Presencial'
+    Uses px.imshow to show deltas as a simple bar chart (since we only have one dimension).
+    """
+    if df.empty or segment_dim not in df.columns or 'work_mode' not in df.columns or 'burnout_level' not in df.columns:
+        return go.Figure()
+    
+    # Parse delta_type - handle both em dash and regular dash
+    if ' − ' in delta_type:
+        modes = delta_type.split(' − ')
+    elif ' - ' in delta_type:
+        modes = delta_type.split(' - ')
+    else:
+        return go.Figure()
+    
+    if len(modes) != 2:
+        return go.Figure()
+    
+    # Map Portuguese names to lowercase work_mode values
+    mode_map = {
+        'remoto': 'remote',
+        'híbrido': 'hybrid',
+        'presencial': 'onsite'
+    }
+    
+    mode1 = mode_map.get(modes[0].lower().strip(), modes[0].lower().strip())
+    mode2 = mode_map.get(modes[1].lower().strip(), modes[1].lower().strip())
+    
+    # Normalize work_mode to lowercase for comparison
+    df = df.copy()
+    df['work_mode_lower'] = df['work_mode'].str.lower().str.strip()
+    
+    # Filter to only the two modes we're comparing
+    df_filtered = df[df['work_mode_lower'].isin([mode1, mode2])]
+    
+    if df_filtered.empty:
+        return go.Figure()
+    
+    # Calculate high burnout rate per segment and work mode
+    segment_mode_stats = df_filtered.groupby([segment_dim, 'work_mode_lower']).agg({
+        'burnout_level': lambda x: (x == 'high').mean() * 100,
+        segment_dim: 'count'
+    }).rename(columns={segment_dim: 'n'}).reset_index()
+    
+    # Filter segments with minimum sample size
+    segment_mode_stats = segment_mode_stats[segment_mode_stats['n'] >= 5]
+    
+    if segment_mode_stats.empty:
+        return go.Figure()
+    
+    # Pivot to get rates for each mode
+    pivot_df = segment_mode_stats.pivot(index=segment_dim, columns='work_mode_lower', values='burnout_level')
+    
+    # Calculate delta
+    if mode1 in pivot_df.columns and mode2 in pivot_df.columns:
+        pivot_df['delta'] = pivot_df[mode1] - pivot_df[mode2]
+        pivot_df = pivot_df.reset_index()
+        
+        # Sort by delta descending
+        pivot_df = pivot_df.sort_values('delta', ascending=False)
+        
+        # Create horizontal bar chart showing deltas
+        fig = px.bar(
+            pivot_df,
+            x='delta',
+            y=segment_dim,
+            orientation='h',
+            title=f"Delta de burnout entre modalidades por segmento",
+            labels={
+                'delta': f'Δ pp ({modes[0]} − {modes[1]})',
+                segment_dim: 'Segmento'
+            },
+            color='delta',
+            color_continuous_scale='RdBu_r',
+            color_continuous_midpoint=0
+        )
+        fig.update_layout(
+            xaxis_title=f"Δ pp ({modes[0]} − {modes[1]})",
+            yaxis_title="Segmento",
+            coloraxis_showscale=True
+        )
+        return fig
+    
+    return go.Figure()
+
+
+# ============================================================================
+# SEGMENTS PAGE FUNCTIONS (pages/5_Perfis_Segmentos.py)
+# ============================================================================
+
+def make_segments_kpi_cards(df, segmentation):
+    """Returns KPIs: number of segments, % in critical segments, overall high_burnout_rate."""
+    if df.empty or segmentation not in df.columns:
+        return None, None, None
+    
+    n_segments = df[segmentation].nunique()
+    
+    # Calculate high burnout rate per segment
+    segment_stats = df.groupby(segmentation).agg({
+        'burnout_level': lambda x: (x == 'high').mean() * 100
+    }).reset_index()
+    segment_stats = segment_stats.sort_values('burnout_level', ascending=False)
+    
+    # Top 3 critical segments
+    top3 = segment_stats.head(3)
+    if not top3.empty:
+        top3_total = df[df[segmentation].isin(top3[segmentation])].shape[0]
+        pct_critical = (top3_total / len(df)) * 100 if len(df) > 0 else 0
+    else:
+        pct_critical = 0
+    
+    overall_high_burnout = (df['burnout_level'] == 'high').mean() * 100 if 'burnout_level' in df.columns else 0
+    
+    return n_segments, pct_critical, overall_high_burnout
+
+
+def plot_segment_burnout_ranking(df, segmentation):
+    """Aggregate by segmentation, compute high_burnout_rate, use px.bar horizontal sorted descending."""
+    if df.empty or segmentation not in df.columns or 'burnout_level' not in df.columns:
+        return go.Figure()
+    
+    segment_stats = df.groupby(segmentation).agg({
+        'burnout_level': lambda x: (x == 'high').mean() * 100,
+        segmentation: 'count'
+    }).rename(columns={'burnout_level': 'high_burnout_rate', segmentation: 'n'})
+    
+    # Filter out segments with tiny N
+    segment_stats = segment_stats[segment_stats['n'] >= 5]
+    
+    if segment_stats.empty:
+        return go.Figure()
+    
+    segment_stats = segment_stats.sort_values('high_burnout_rate', ascending=True).reset_index()
+    
+    fig = px.bar(
+        segment_stats,
+        x='high_burnout_rate',
+        y=segmentation,
+        orientation='h',
+        title="Segmentos com maior % de burnout alto",
+        labels={
+            'high_burnout_rate': '% Burnout Alto',
+            segmentation: 'Segmento'
+        },
+        color='high_burnout_rate',
+        color_continuous_scale='Reds'
+    )
+    fig.update_layout(
+        xaxis_title="% Burnout Alto",
+        yaxis_title="Segmento",
+        coloraxis_showscale=False
+    )
+    return fig
+
+
+def plot_segment_stress_mean(df, segmentation):
+    """Similar aggregation but for average stress_score. px.bar horizontal."""
+    if df.empty or segmentation not in df.columns or 'stress_score' not in df.columns:
+        return go.Figure()
+    
+    segment_stats = df.groupby(segmentation).agg({
+        'stress_score': 'mean',
+        segmentation: 'count'
+    }).rename(columns={'stress_score': 'stress_mean', segmentation: 'n'})
+    
+    # Filter out segments with tiny N
+    segment_stats = segment_stats[segment_stats['n'] >= 5]
+    
+    if segment_stats.empty:
+        return go.Figure()
+    
+    segment_stats = segment_stats.sort_values('stress_mean', ascending=True).reset_index()
+    
+    fig = px.bar(
+        segment_stats,
+        x='stress_mean',
+        y=segmentation,
+        orientation='h',
+        title="Estresse médio por segmento",
+        labels={
+            'stress_mean': 'Estresse Médio',
+            segmentation: 'Segmento'
+        },
+        color='stress_mean',
+        color_continuous_scale='Reds'
+    )
+    fig.update_layout(
+        xaxis_title="Estresse Médio",
+        yaxis_title="Segmento",
+        coloraxis_showscale=False
+    )
+    return fig
+
+
+def make_segment_summary_table(df, segmentation):
+    """Returns summary dataframe: [segment, N, stress_mean, hours_mean, high_burnout_rate]."""
+    if df.empty or segmentation not in df.columns:
+        return pd.DataFrame()
+    
+    summary = df.groupby(segmentation).agg({
+        segmentation: 'count',
+        'stress_score': 'mean',
+        'hours_per_week': 'mean',
+        'burnout_level': lambda x: (x == 'high').mean() * 100
+    }).rename(columns={
+        segmentation: 'N',
+        'stress_score': 'stress_mean',
+        'hours_per_week': 'hours_mean',
+        'burnout_level': 'high_burnout_rate'
+    }).reset_index()
+    
+    summary.columns = ['segment', 'N', 'stress_mean', 'hours_mean', 'high_burnout_rate']
+    summary = summary.sort_values('high_burnout_rate', ascending=False)
+    
+    return summary
+
+
+# ============================================================================
+# LEGACY FUNCTIONS (kept for backward compatibility)
+# ============================================================================
+
+def kpi_cards(df_filtered, df_total):
+    """Legacy KPI cards function - kept for backward compatibility."""
     if df_filtered.empty:
         st.info("Nenhum dado disponível para KPIs.")
         return
-
-    # ============================================
-    # 2. MÉTRICAS FILTRADAS
-    # ============================================
+    
     n = len(df_filtered)
     stress_mean = df_filtered["stress_score"].mean()
     burnout_high_pct = (df_filtered["burnout_level"] == "high").mean() * 100
     hours_mean = df_filtered["hours_per_week"].mean()
-
-    # ============================================
-    # 3. BENCHMARK GLOBAL
-    # ============================================
+    
     stress_global = df_total["stress_score"].mean()
     burnout_high_global = (df_total["burnout_level"] == "high").mean() * 100
     hours_global = df_total["hours_per_week"].mean()
-
-    # ============================================
-    # 4. DELTAS (com proteção contra NA)
-    # ============================================
+    
     def safe_delta(a, b):
         if a is None or b is None or b == 0:
             return 0
         return a - b
-
+    
     delta_stress = safe_delta(stress_mean, stress_global)
     delta_burnout = safe_delta(burnout_high_pct, burnout_high_global)
     delta_hours = safe_delta(hours_mean, hours_global)
-
-    # ============================================
-    # FUNÇÃO DE COR DO DELTA
-    # ============================================
+    
     def color_delta(v, higher_is_bad=True):
         if np.isnan(v):
-            return "#9ca3af"  # cinza
+            return "#9ca3af"
         if higher_is_bad:
             return "#ef4444" if v > 0 else "#10b981"
         else:
             return "#10b981" if v > 0 else "#ef4444"
-
-    # ============================================
-    # 5. LAYOUT EM 4 COLUNAS
-    # ============================================
+    
     col1, col2, col3, col4 = st.columns(4)
-
-    # ============================================
-    # TEMPLATE DE CARD PREMIUM
-    # ============================================
+    
     def render_card(col, value, label, delta, delta_label, color):
         html = f"""
         <div style="
@@ -72,11 +706,9 @@ def kpi_cards(df_filtered, df_total):
             <div style="font-size: 1.9rem; font-weight: 700; color:{color};">
                 {value}
             </div>
-
             <div style="color:#e2e8f0; font-size: 1rem; margin-top:4px;">
                 {label}
             </div>
-
             <div style="
                 margin-top: 6px;
                 font-size: 0.85rem;
@@ -87,623 +719,67 @@ def kpi_cards(df_filtered, df_total):
         </div>
         """
         col.html(textwrap.dedent(html))
-
-    # ============================================
-    # 6. RENDERIZA OS QUATRO KPIS
-    # ============================================
-
-    # --- RESPONDENTES ---
-    render_card(
-        col1,
-        f"{n:,}",
-        "Respondentes",
-        0,  # respondentes não tem delta
-        "Base filtrada",
-        "#60a5fa"
-    )
-
-    # --- ESTRESSE ---
-    render_card(
-        col2,
-        f"{stress_mean:.1f}",
-        "Estresse Médio",
-        delta_stress,
-        f"Δ {delta_stress:+.2f} vs global",
-        "#f87171"
-    )
-
-    # --- BURNOUT ALTO ---
-    render_card(
-        col3,
-        f"{burnout_high_pct:.1f}%",
-        "Burnout Alto",
-        delta_burnout,
-        f"Δ {delta_burnout:+.2f} pp vs global",
-        "#fb7185"
-    )
-
-    # --- HORAS SEMANAIS ---
-    render_card(
-        col4,
-        f"{hours_mean:.1f}h",
-        "Horas por Semana",
-        delta_hours,
-        f"Δ {delta_hours:+.2f}h vs global",
-        "#34d399"
-    )
+    
+    render_card(col1, f"{n:,}", "Respondentes", 0, "Base filtrada", "#60a5fa")
+    render_card(col2, f"{stress_mean:.1f}", "Estresse Médio", delta_stress, f"Δ {delta_stress:+.2f} vs global", "#f87171")
+    render_card(col3, f"{burnout_high_pct:.1f}%", "Burnout Alto", delta_burnout, f"Δ {delta_burnout:+.2f} pp vs global", "#fb7185")
+    render_card(col4, f"{hours_mean:.1f}h", "Horas por Semana", delta_hours, f"Δ {delta_hours:+.2f}h vs global", "#34d399")
 
 
-def dist_stress(df: pd.DataFrame):
-    if df is None or df.empty or 'stress_score' not in df.columns:
-        return go.Figure()
-    fig = px.histogram(df, x='stress_score', nbins=20, marginal="box")
-    fig.update_layout(title="Distribuição do Estresse", xaxis_title="Escore de estresse", yaxis_title="Contagem")
-    return fig
+def scatter_hours_burnout(df):
+    """Legacy function - use plot_hours_vs_stress_scatter instead."""
+    return plot_hours_vs_stress_scatter(df)
 
 
-def scatter_hours_burnout(df: pd.DataFrame):
-    if df is None or df.empty or not set(['hours_per_week', 'stress_score']).issubset(df.columns):
-        return go.Figure()
-    color = 'burnout_level' if 'burnout_level' in df.columns else None
-    fig = px.scatter(df, x='hours_per_week', y='stress_score', color=color, trendline="ols")
-    fig.update_layout(title="Horas/semana × Estresse")
-    fig.update_xaxes(title="Horas por semana")
-    fig.update_yaxes(title="Escore de estresse")
-    return fig
-
-
-def box_burnout_by_role(df: pd.DataFrame):
-    cols = ['role', 'stress_score']
-    if df is None or df.empty or not set(cols).issubset(df.columns):
+def box_burnout_by_role(df):
+    """Legacy function - kept for backward compatibility."""
+    if df.empty or 'role' not in df.columns or 'stress_score' not in df.columns:
         return go.Figure()
     fig = px.box(df, x='role', y='stress_score', points='all')
     fig.update_layout(title="Estresse por Cargo/Modalidade", xaxis_title="Cargo", yaxis_title="Estresse")
     return fig
 
 
-def stacked_env_policies(
-    df: pd.DataFrame,
-    policy_col: str = 'policy',
-    min_pct: float = 5.0,
-    show_percentages: bool = True
-) -> go.Figure:
-    """
-    Cria gráfico de barras empilhadas mostrando a distribuição de burnout por política/condição.
-    
-    Args:
-        df: DataFrame com os dados
-        policy_col: Nome da coluna de política/condição a analisar
-        min_pct: Percentual mínimo para não agrupar em "Outros" (default: 5%)
-        show_percentages: Se True, mostra percentuais; se False, contagens absolutas
-    
-    Returns:
-        Figura Plotly com barras empilhadas
-    """
-    if df is None or df.empty:
+def stacked_env_policies(df, policy_col='policy', min_pct=5.0, show_percentages=True):
+    """Legacy function - use plot_burnout_distribution_by_policy instead."""
+    return plot_burnout_distribution_by_policy(df)
+
+
+def compare_policies_risk(df, policy_col='policy'):
+    """Legacy function - use make_policy_summary_table instead."""
+    return make_policy_summary_table(df)
+
+
+def violin_by_workmode(df):
+    """Legacy function - use plot_stress_by_workmode instead."""
+    return plot_stress_by_workmode(df)
+
+
+def plot_delta_heatmap(df, rows_col, cols_col, mode_col="work_mode", **kwargs):
+    """Legacy function - simplified version."""
+    # This is a simplified version - the new plot_workmode_delta_heatmap is more focused
+    if df.empty or rows_col not in df.columns or cols_col not in df.columns:
         return go.Figure()
     
-    # Valida colunas necessárias
-    if not set([policy_col, 'burnout_level']).issubset(df.columns):
-        return go.Figure()
-    
-    # Copia e prepara dados
-    df_work = df[[policy_col, 'burnout_level']].copy()
-    df_work = df_work.dropna()
-    
-    if df_work.empty:
-        return go.Figure()
-    
-    # Agrupa categorias raras em "Outros"
-    counts = df_work[policy_col].value_counts(normalize=True) * 100
-    rare_categories = counts[counts < min_pct].index.tolist()
-    
-    if rare_categories:
-        df_work[policy_col] = df_work[policy_col].apply(
-            lambda x: 'Outros' if x in rare_categories else x
-        )
-    
-    # Agrupa por política e burnout
-    ct = df_work.groupby([policy_col, 'burnout_level']).size().reset_index(name='n')
-    
-    if show_percentages:
-        # Calcula % dentro de cada política
-        ct['total_by_policy'] = ct.groupby(policy_col)['n'].transform('sum')
-        ct['value'] = (ct['n'] / ct['total_by_policy'] * 100).round(1)
-        y_label = "Percentual (%)"
-    else:
-        ct['value'] = ct['n']
-        y_label = "Número de Respondentes"
-    
-    # Mapa de cores consistente
-    color_map = {
-        'low': '#4ECDC4',      # Verde/azul (baixo risco)
-        'medium': '#FFE66D',   # Amarelo (risco médio)
-        'high': '#FF6B6B'      # Vermelho (alto risco)
-    }
-    
-    # Ordena burnout_level para garantir ordem consistente (low, medium, high)
-    burnout_order = ['low', 'medium', 'high']
-    ct['burnout_level'] = pd.Categorical(ct['burnout_level'], categories=burnout_order, ordered=True)
-    ct = ct.sort_values(['burnout_level', policy_col])
-    
-    # Cria gráfico
-    fig = px.bar(
-        ct, 
-        x=policy_col, 
-        y='value', 
-        color='burnout_level',
-        barmode='stack',
-        color_discrete_map=color_map,
-        category_orders={'burnout_level': burnout_order},
-        labels={
-            policy_col: 'Política/Condição',
-            'value': y_label,
-            'burnout_level': 'Nível de Burnout'
-        }
-    )
-    
-    # Adiciona texto nas barras
-    fig.update_traces(
-        texttemplate='%{y:.1f}' + ('%' if show_percentages else ''),
-        textposition='inside',
-        textfont_size=10
-    )
-    
-    fig.update_layout(
-        title="Distribuição de Burnout por Política de Suporte",
-        xaxis_title="Política/Condição Organizacional",
-        yaxis_title=y_label,
-        legend_title="Nível de Burnout",
-        hovermode='x unified',
-        height=500
-    )
-    
-    return fig
-
-
-def compare_policies_risk(df: pd.DataFrame, policy_col: str = 'policy') -> pd.DataFrame:
-    """
-    Retorna tabela com análise de risco por política/condição.
-    
-    Args:
-        df: DataFrame com os dados
-        policy_col: Nome da coluna de política a analisar
-    
-    Returns:
-        DataFrame com colunas: policy, n_total, pct_high, pct_medium, pct_low
-        Ordenado por pct_high (decrescente)
-    """
-    if df is None or df.empty:
-        return pd.DataFrame()
-    
-    if not set([policy_col, 'burnout_level']).issubset(df.columns):
-        return pd.DataFrame()
-    
-    # Remove valores nulos
-    df_work = df[[policy_col, 'burnout_level']].dropna()
-    
-    if df_work.empty:
-        return pd.DataFrame()
-    
-    # Agrupa e calcula proporções
-    grouped = df_work.groupby([policy_col, 'burnout_level']).size().unstack(fill_value=0)
-    
-    # Calcula percentuais
-    totals = grouped.sum(axis=1)
-    pct = (grouped.div(totals, axis=0) * 100).round(1)
-    
-    # Monta resultado
-    result = pd.DataFrame({
-        policy_col: pct.index,
-        'n_total': totals.values
-    })
-    
-    # Adiciona percentuais de cada nível
-    for level in ['high', 'medium', 'low']:
-        if level in pct.columns:
-            result[f'pct_{level}'] = pct[level].values
-        else:
-            result[f'pct_{level}'] = 0.0
-    
-    # Ordena por risco alto (decrescente)
-    result = result.sort_values('pct_high', ascending=False).reset_index(drop=True)
-    
-    return result
-
-
-def violin_by_workmode(df: pd.DataFrame):
-    if df is None or df.empty or not set(['work_mode', 'stress_score']).issubset(df.columns):
-        return go.Figure()
-    fig = px.violin(df, x='work_mode', y='stress_score', box=True, points='all')
-    fig.update_layout(title="Estresse por Modalidade de Trabalho", xaxis_title="Modalidade", yaxis_title="Estresse")
-    return fig
-
-
-def small_multiples_segments(df: pd.DataFrame):
-    """
-    Cria gráficos de comparação entre segmentos (departamentos/regiões).
-    
-    Mostra múltiplas métricas por segmento:
-    - Estresse médio
-    - % Burnout Alto
-    - Horas médias por semana
-    """
-    if df is None or df.empty or 'segment' not in df.columns:
-        return go.Figure()
-    
-    # Agrupa por segmento e calcula métricas
-    metrics = df.groupby('segment').agg({
-        'stress_score': 'mean',
-        'hours_per_week': 'mean',
-        'segment': 'count'  # contagem
-    }).rename(columns={'segment': 'count'})
-    
-    # Calcula % de burnout alto
-    if 'burnout_level' in df.columns:
-        burnout_high = df[df['burnout_level'] == 'high'].groupby('segment').size()
-        metrics['pct_high_burnout'] = (burnout_high / metrics['count'] * 100).fillna(0)
-    else:
-        metrics['pct_high_burnout'] = 0
-    
-    metrics = metrics.reset_index()
-    
-    # Cria figura com subplots
-    from plotly.subplots import make_subplots
-    
-    fig = make_subplots(
-        rows=1, cols=3,
-        subplot_titles=('Estresse Médio', '% Burnout Alto', 'Horas/Semana Médias'),
-        horizontal_spacing=0.1
-    )
-    
-    # Gráfico 1: Estresse médio
-    fig.add_trace(
-        go.Bar(
-            x=metrics['segment'],
-            y=metrics['stress_score'],
-            name='Estresse',
-            marker_color='#FF6B6B',
-            text=metrics['stress_score'].round(1),
-            textposition='outside'
-        ),
-        row=1, col=1
-    )
-    
-    # Gráfico 2: % Burnout alto
-    fig.add_trace(
-        go.Bar(
-            x=metrics['segment'],
-            y=metrics['pct_high_burnout'],
-            name='% Burnout Alto',
-            marker_color='#EE5A6F',
-            text=metrics['pct_high_burnout'].round(1).astype(str) + '%',
-            textposition='outside'
-        ),
-        row=1, col=2
-    )
-    
-    # Gráfico 3: Horas médias
-    fig.add_trace(
-        go.Bar(
-            x=metrics['segment'],
-            y=metrics['hours_per_week'],
-            name='Horas/Sem',
-            marker_color='#4ECDC4',
-            text=metrics['hours_per_week'].round(1),
-            textposition='outside'
-        ),
-        row=1, col=3
-    )
-    
-    fig.update_layout(
-        title_text="Perfil de Risco: Compare Estresse, Burnout e Horas por Segmento",
-        showlegend=False,
-        height=400
-    )
-    
-    fig.update_yaxes(title_text="Nível", row=1, col=1)
-    fig.update_yaxes(title_text="Percentual", row=1, col=2)
-    fig.update_yaxes(title_text="Horas", row=1, col=3)
-    
-    return fig
-
-def _ensure_categories(df, cols):
-    for c in cols:
-        if c in df.columns:
-            df[c] = df[c].astype(str).str.strip()
-    return df
-
-def compute_risk_delta_by_mode_segment(
-    df: pd.DataFrame,
-    segment_col: str,
-    mode_col: str = "work_mode",
-    risk_metric: str = "burnout_high",       # "burnout_high" | "stress_threshold"
-    stress_col: str = "stress_score",
-    stress_threshold: float = 7.0,
-    burnout_col: str = "burnout_level",
-    burnout_high_value: str = "high",
-    min_n: int = 15                           # filtra categorias com pouca amostra
-) -> pd.DataFrame:
-    """
-    Retorna tabela com risco por Remote/Hybrid e delta = Remote - Hybrid para cada valor do segmento.
-    """
-    req_cols = [segment_col, mode_col]
-    if risk_metric == "burnout_high":
-        req_cols.append(burnout_col)
-    else:
-        req_cols.append(stress_col)
-    for c in req_cols:
-        if c not in df.columns:
-            raise ValueError(f"Coluna necessária ausente: {c}")
-
-    df = df.copy()
-    df = _ensure_categories(df, [segment_col, mode_col])
-
-    # define flag de risco
-    if risk_metric == "burnout_high":
-        df["_risk_flag"] = (df[burnout_col].astype(str).str.lower() == str(burnout_high_value).lower())
-    else:
-        df["_risk_flag"] = pd.to_numeric(df[stress_col], errors="coerce") >= stress_threshold
-
-    # somente Remote/Hybrid
-    df = df[df[mode_col].isin(["Remote", "Hybrid"])]
-
-    # agrupa
-    g = (
-        df.groupby([segment_col, mode_col], dropna=False)
-          .agg(n=(" _risk_flag".strip(), "size"), risk=(" _risk_flag".strip(), "mean"))
-          .reset_index()
-    )
-
-    # reshape wide
-    wide = g.pivot(index=segment_col, columns=mode_col, values=["risk","n"]).fillna(0)
-    # flatten columns
-    wide.columns = [f"{a}_{b}" for a,b in wide.columns]
-    for col in ["risk_Hybrid","risk_Remote","n_Hybrid","n_Remote"]:
-        if col not in wide.columns:
-            wide[col] = 0.0
-
-    wide = wide.reset_index()
-
-    # aplica mínimo de amostra
-    wide["n_min"] = wide[["n_Hybrid","n_Remote"]].min(axis=1)
-    wide = wide[wide["n_min"] >= min_n].copy()
-
-    # delta
-    wide["delta"] = wide["risk_Remote"] - wide["risk_Hybrid"]
-    wide["risk_Remote_pct"] = (wide["risk_Remote"]*100).round(1)
-    wide["risk_Hybrid_pct"] = (wide["risk_Hybrid"]*100).round(1)
-    wide["delta_pct"] = (wide["delta"]*100).round(1)
-    return wide.sort_values("delta", ascending=False)
-
-def plot_risk_bars_remote_hybrid(df_delta: pd.DataFrame, segment_col: str):
-    long = df_delta[[segment_col,"risk_Remote","risk_Hybrid"]].melt(
-        id_vars=segment_col, var_name="mode", value_name="risk"
-    )
-    long["risk_pct"] = (long["risk"]*100).round(1)
-    fig = px.bar(
-        long, x=segment_col, y="risk_pct", color="mode",
-        barmode="group",
-        labels={"risk_pct":"Risco (%)","mode":"Modalidade"},
-        title="Risco por Modalidade (Remote x Hybrid)"
-    )
-    fig.update_layout(xaxis_title=segment_col, legend_title="Modalidade")
-    return fig
-
-def plot_delta_lollipop(df_delta: pd.DataFrame, segment_col: str):
-    # lollipop = linha do 0 até delta, com marcador na ponta
-    base = px.scatter(
-        df_delta, x="delta_pct", y=segment_col,
-        labels={"delta_pct":"Delta Remoto − Híbrido (pp)"},
-        title="Delta de Risco por Segmento (positivo = Remoto pior)"
-    )
-    for i, row in df_delta.iterrows():
-        base.add_shape(
-            type="line",
-            x0=0, x1=row["delta_pct"],
-            y0=i+1, y1=i+1,
-            line=dict(width=2)
-        )
-    return base
-
-def plot_delta_heatmap(
-    df: pd.DataFrame,
-    rows_col: str, cols_col: str,
-    mode_col: str = "work_mode",
-    **kwargs
-):
-    """Heatmap de delta por 2 dimensões de segmento."""
-    d = compute_risk_delta_by_mode_segment(df, segment_col=rows_col, mode_col=mode_col, **kwargs)
-    d2 = compute_risk_delta_by_mode_segment(df, segment_col=cols_col, mode_col=mode_col, **kwargs)
-    # junta pelo cartesian? melhor recalcular usando ambos:
-    df = df[df[mode_col].isin(["Remote","Hybrid"])].copy()
+    # For now, use a simple approach
+    df = df[df[mode_col].isin(["Remote", "Hybrid"])].copy()
     df["_risk_flag"] = (
-        (df.get(kwargs.get("burnout_col","burnout_level"),"").astype(str).str.lower() == str(kwargs.get("burnout_high_value","high")).lower())
-        if kwargs.get("risk_metric","burnout_high") == "burnout_high"
-        else pd.to_numeric(df.get(kwargs.get("stress_col","stress_score")), errors="coerce") >= kwargs.get("stress_threshold",7.0)
+        (df.get("burnout_level", "").astype(str).str.lower() == "high")
     )
-    g = (
-        df.groupby([rows_col, cols_col, mode_col])
-          .agg(risk=("_risk_flag","mean"), n=("_risk_flag","size"))
-          .reset_index()
-    )
+    
+    g = df.groupby([rows_col, cols_col, mode_col]).agg(
+        risk=("_risk_flag", "mean"), n=("_risk_flag", "size")
+    ).reset_index()
+    
     wide = g.pivot_table(index=[rows_col, cols_col], columns=mode_col, values="risk").reset_index()
-    for m in ["Remote","Hybrid"]:
-        if m not in wide.columns: wide[m]=np.nan
-    wide["delta_pct"] = ((wide["Remote"] - wide["Hybrid"])*100).round(1)
+    for m in ["Remote", "Hybrid"]:
+        if m not in wide.columns:
+            wide[m] = np.nan
+    
+    wide["delta_pct"] = ((wide["Remote"] - wide["Hybrid"]) * 100).round(1)
     fig = px.imshow(
         wide.pivot(index=rows_col, columns=cols_col, values="delta_pct"),
         labels=dict(color="Δ pp (Rem−Hib)"),
         title=f"Heatmap de Delta por {rows_col} × {cols_col}"
     )
     return fig
-
-def stress_distribution_premium(df):
-    import plotly.graph_objects as go
-    import numpy as np
-    import plotly.express as px
-
-    if df.empty:
-        return go.Figure()
-
-    x = df["stress_score"]
-
-    fig = go.Figure()
-
-    # HISTOGRAMA
-    fig.add_trace(go.Histogram(
-        x=x,
-        nbinsx=20,
-        marker=dict(
-            color="#4A90E2",
-            line=dict(color="#1e293b", width=1),
-        ),
-        opacity=0.65,
-        name="Distribuição"
-    ))
-
-    # KDE (linha suave)
-    kde_x = np.linspace(x.min(), x.max(), 200)
-    kde_y = (
-        (1 / (x.std() * np.sqrt(2 * np.pi))) *
-        np.exp(-0.5 * ((kde_x - x.mean()) / x.std()) ** 2)
-    )
-
-    fig.add_trace(go.Scatter(
-        x=kde_x,
-        y=kde_y * len(x) * (x.max() - x.min()) / 20,
-        mode="lines",
-        line=dict(color="#f87171", width=3),
-        name="Curva de Densidade"
-    ))
-
-    fig.update_layout(
-        title="Distribuição de Estresse (Premium)",
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="#0f172a",
-        font=dict(color="#e2e8f0"),
-        bargap=0.05,
-        margin=dict(l=15, r=15, t=40, b=15),
-        height=380,
-    )
-
-    return fig
-
-def hours_vs_stress_premium(df):
-    import plotly.express as px
-    import plotly.graph_objects as go
-
-    if df.empty:
-        return go.Figure()
-
-    fig = px.scatter(
-        df,
-        x="hours_per_week",
-        y="stress_score",
-        opacity=0.8,
-        trendline="ols",
-        color_discrete_sequence=["#60a5fa"],
-        labels={
-            "hours_per_week": "Horas por Semana",
-            "stress_score": "Estresse"
-        }
-    )
-
-    fig.update_traces(marker=dict(size=9, line=dict(width=1, color="#1e293b")))
-
-    fig.update_layout(
-        title="Carga Horária × Estresse (Premium)",
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="#0f172a",
-        font=dict(color="#e2e8f0"),
-        margin=dict(l=15, r=15, t=40, b=15),
-        height=380,
-    )
-
-    return fig
-
-def burnout_segments_premium(df):
-    import plotly.express as px
-    import plotly.graph_objects as go
-
-    if df.empty or "segment" not in df.columns:
-        return go.Figure()
-
-    seg = df.groupby("segment")["burnout_level"].apply(
-        lambda x: (x == "high").mean() * 100
-    ).sort_values(ascending=True).tail(8)
-
-    fig = px.bar(
-        seg,
-        orientation="h",
-        labels={"value": "% Burnout Alto", "segment": "Segmento"},
-        color=seg.values,
-        color_continuous_scale="Reds"
-    )
-
-    fig.update_layout(
-        title="Top Segmentos com Maior Burnout (Premium)",
-        coloraxis_showscale=False,
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="#0f172a",
-        font=dict(color="#e2e8f0"),
-        height=420,
-        margin=dict(l=15, r=15, t=50, b=15),
-    )
-
-    return fig
-
-
-def risk_heatmap_premium(df):
-    import pandas as pd
-    import plotly.express as px
-    import plotly.graph_objects as go
-
-    if df is None or df.empty:
-        return go.Figure()
-
-    df = df.copy()
-
-    # Converte burnout para flag numérica
-    if "burnout_level" in df.columns:
-        df["burnout_flag"] = (df["burnout_level"] == "high").astype(int)
-
-    # Seleciona SOMENTE colunas numéricas
-    df_num = df.select_dtypes(include="number")
-
-    # Se tiver menos de 2 variáveis, não há correlação possível
-    if df_num.shape[1] < 2:
-        fig = go.Figure()
-        fig.add_annotation(
-            text="Dados insuficientes para gerar o heatmap.",
-            showarrow=False,
-            font=dict(color="white", size=16)
-        )
-        fig.update_layout(height=300, paper_bgcolor="rgba(0,0,0,0)")
-        return fig
-
-    # Calcula correlação
-    corr = df_num.corr()
-
-    fig = px.imshow(
-        corr,
-        text_auto=True,
-        color_continuous_scale="RdBu_r",
-        zmin=-1,
-        zmax=1,
-        aspect="auto",
-        labels=dict(color="Correlação"),
-        title="Mapa de Correlações entre Indicadores Numéricos (Premium)"
-    )
-
-    fig.update_layout(
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="#0f172a",
-        font=dict(color="#e2e8f0"),
-        margin=dict(l=40, r=40, t=70, b=40),
-        height=450,
-    )
-
-    return fig
-
-

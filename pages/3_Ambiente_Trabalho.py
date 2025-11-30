@@ -1,17 +1,15 @@
 import streamlit as st
 from utils.data_io import load_data, render_sidebar
-from utils.charts import stacked_env_policies, compare_policies_risk
-from ui.insight_box import insight_box
-from insights.enviroments import insights_enviroments
-
+from utils.theming import set_page_theme
+from utils.charts import (
+    make_environment_kpi_cards,
+    plot_burnout_distribution_by_policy,
+    plot_policy_burnout_ranking,
+    make_policy_summary_table
+)
 
 st.set_page_config(page_title="Ambiente de Trabalho — SR2", page_icon="🏢", layout="wide")
-
-# ====================================
-# TÍTULO E INTRODUÇÃO
-# ====================================
-st.title("🏢 Ambiente de Trabalho e Políticas Organizacionais")
-
+set_page_theme()
 
 # ====================================
 # CARREGA E FILTRA DADOS
@@ -25,165 +23,52 @@ if df_filtered.empty:
     st.stop()
 
 # ====================================
-# SELEÇÃO DE DIMENSÃO DE POLÍTICA
+# HERO SECTION
 # ====================================
-st.subheader("📊 Análise de Políticas")
-
-# Identifica dimensões disponíveis
-available_dimensions = []
-dimension_labels = {
-    'policy': '🛡️ Políticas de Suporte à Saúde Mental',
-    'work_mode': '💼 Modalidade de Trabalho (já analisada em outra página)',
-    'segment': '🏭 Segmentos/Departamentos'
-}
-
-for col in ['policy', 'segment']:
-    if col in df_filtered.columns and df_filtered[col].notna().sum() > 0:
-        available_dimensions.append(col)
-
-if not available_dimensions:
-    st.error("❌ Nenhuma dimensão de política disponível nos dados filtrados.")
-    st.stop()
-
-# Selectbox para escolher dimensão (se houver múltiplas)
-if len(available_dimensions) > 1:
-    selected_dimension = st.selectbox(
-        "Selecione a dimensão para análise:",
-        options=available_dimensions,
-        format_func=lambda x: dimension_labels.get(x, x),
-        help="Escolha qual aspecto organizacional você quer analisar em relação ao burnout"
-    )
-else:
-    selected_dimension = available_dimensions[0]
-    st.caption(f"Analisando: **{dimension_labels.get(selected_dimension, selected_dimension)}**")
+st.title("Ambiente & políticas organizacionais")
+st.caption("Comparação de políticas de trabalho em termos de risco de burnout.")
 
 # ====================================
-# KPIs RÁPIDOS
+# KPIs
 # ====================================
-st.markdown("### 📈 Indicadores-Chave")
+n_policies, burnout_high_pct, stress_mean = make_environment_kpi_cards(df_filtered)
 
-# Calcula estatísticas de risco por política
-risk_stats = compare_policies_risk(df_filtered, policy_col=selected_dimension)
-
-if risk_stats.empty:
-    st.warning("⚠️ Não há dados suficientes para análise de políticas.")
-    st.stop()
-
-# KPIs em colunas
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.metric(
-        "Políticas Analisadas",
-        len(risk_stats),
-        help=f"Número de categorias distintas em {selected_dimension}"
-    )
+    st.metric("Políticas Distintas", n_policies)
 
 with col2:
-    top_risk = risk_stats.iloc[0]
-    st.metric(
-        "⚠️ Maior Risco",
-        f"{top_risk['pct_high']:.1f}%",
-        delta=f"{top_risk[selected_dimension]}",
-        delta_color="inverse",
-        help="Política/condição com maior % de burnout alto"
-    )
+    st.metric("% Burnout Alto", f"{burnout_high_pct:.1f}%")
 
 with col3:
-    low_risk = risk_stats.iloc[-1]
-    st.metric(
-        "✅ Menor Risco",
-        f"{low_risk['pct_high']:.1f}%",
-        delta=f"{low_risk[selected_dimension]}",
-        delta_color="normal",
-        help="Política/condição com menor % de burnout alto"
-    )
+    st.metric("Estresse Médio", f"{stress_mean:.1f}")
 
-with col4:
-    avg_high = risk_stats['pct_high'].mean()
-    st.metric(
-        "Média de Alto Risco",
-        f"{avg_high:.1f}%",
-        help="Percentual médio de burnout alto entre todas as políticas"
-    )
+st.markdown("<br>", unsafe_allow_html=True)
 
 # ====================================
-# GRÁFICO PRINCIPAL: STACKED BAR
+# BLOCK 1: MAIN CHART (BURNOUT DISTRIBUTION BY POLICY)
 # ====================================
-st.divider()
-st.subheader("📊 Distribuição de Burnout por Política")
+st.plotly_chart(plot_burnout_distribution_by_policy(df_filtered), use_container_width=True)
 
-st.caption("""
-O gráfico abaixo mostra a **proporção** de colaboradores em cada nível de burnout (baixo, médio, alto) 
-para cada política/condição. Cada barra soma 100%, permitindo comparar padrões de risco entre diferentes políticas neste conjunto de dados.
-""")
-
-fig = stacked_env_policies(df_filtered, policy_col=selected_dimension, min_pct=5.0, show_percentages=True)
-st.plotly_chart(fig, use_container_width=True, key="stacked_env_chart")
+st.markdown("<br>", unsafe_allow_html=True)
 
 # ====================================
-# TABELA DETALHADA
+# BLOCK 2: RANKING CHART
 # ====================================
-st.divider()
-st.subheader("📋 Detalhamento por Política")
+st.plotly_chart(plot_policy_burnout_ranking(df_filtered), use_container_width=True)
 
-st.caption("Tabela com estatísticas detalhadas de cada política/condição, ordenada por risco (maior → menor).")
-
-# Formata tabela para exibição
-display_df = risk_stats.copy()
-display_df.columns = [
-    'Política/Condição', 
-    'Total (N)', 
-    '% Alto Risco', 
-    '% Risco Médio', 
-    '% Baixo Risco'
-]
-
-# Aplica estilo com gradiente de cores
-st.dataframe(
-    display_df.style.background_gradient(
-        subset=['% Alto Risco'],
-        cmap='Reds',
-        vmin=0,
-        vmax=100
-    ).background_gradient(
-        subset=['% Baixo Risco'],
-        cmap='Greens',
-        vmin=0,
-        vmax=100
-    ).format({
-        '% Alto Risco': '{:.1f}%',
-        '% Risco Médio': '{:.1f}%',
-        '% Baixo Risco': '{:.1f}%'
-    }),
-    use_container_width=True,
-    height=400
-)
-
-# Botão de download
-csv = risk_stats.to_csv(index=False).encode('utf-8')
-st.download_button(
-    label="📥 Baixar Dados (CSV)",
-    data=csv,
-    file_name=f"analise_politicas_{selected_dimension}.csv",
-    mime="text/csv",
-    help="Exporta a tabela completa para análise externa"
-)
-
-# Aviso sobre tamanho de amostra
-min_n = risk_stats['n_total'].min()
-if min_n < 30:
-    st.warning(f"""
-    ⚠️ **Atenção à amostra**: Algumas políticas têm poucos respondentes (mínimo: {min_n}). 
-    Resultados com amostras pequenas devem ser interpretados com cautela.
-    """)
+st.markdown("<br>", unsafe_allow_html=True)
 
 # ====================================
-# INSIGHTS
+# BLOCK 3: OPTIONAL TABLE
 # ====================================
-insight_box("🔥 Insights Automáticos de Burnout", insights_enviroments(df_filtered))
+summary_df = make_policy_summary_table(df_filtered)
+if not summary_df.empty:
+    st.dataframe(summary_df, use_container_width=True)
 
 # ====================================
 # FOOTER
 # ====================================
-st.caption("💡 **Dica**: Use os filtros na sidebar para segmentar a análise por cargo, modalidade ou carga horária.")
+st.markdown("<br><hr><center style='color:gray'>Dashboard • Projetos 5 — GTI • 2025</center>",
+            unsafe_allow_html=True)

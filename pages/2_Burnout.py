@@ -1,38 +1,20 @@
 import streamlit as st
-import plotly.express as px
 from utils.data_io import load_data, render_sidebar
-from utils.charts import scatter_hours_burnout, box_burnout_by_role
-from ui.insight_box import insight_box
-from insights.burnout import insights_burnout
+from utils.theming import set_page_theme
+from utils.charts import (
+    make_burnout_kpi_cards,
+    plot_hours_vs_stress_scatter,
+    plot_stress_by_hours_band,
+    plot_roles_burnout_ranking
+)
 
 st.set_page_config(page_title="Burnout — SR2", page_icon="🔥", layout="wide")
-
-# ====================================
-# TÍTULO E INTRODUÇÃO
-# ====================================
-st.title("🔥 Burnout e Carga de Trabalho")
-
-# with st.expander("Como pensamos esta análise?"):
-#     st.markdown(
-#         """
-#         Nesta página não estamos provando causa e efeito, mas olhando para **padrões de associação**.
-#         Em outras palavras: *neste conjunto de dados*, certos contextos de trabalho aparecem mais
-#         frequentemente com estresse e burnout altos.
-
-#         Isso ajuda a levantar hipóteses do tipo:
-#         - “Equipes com comunicação mais clara parecem relatar menos burnout?”
-#         - “Falta de apoio psicológico aparece junto com mais casos de burnout alto?”
-#         """
-#     )
-
+set_page_theme()
 
 # ====================================
 # CARREGA E FILTRA DADOS
 # ====================================
-# Carrega dados normalizados (todos os datasets)
 df = load_data()
-
-# Aplica filtros globais da sidebar
 df_filtered = render_sidebar(df)
 
 # Verifica se há dados após filtros
@@ -41,52 +23,50 @@ if df_filtered.empty:
     st.stop()
 
 # ====================================
-# DISTRIBUIÇÃO DE ESTRESSE
+# HERO SECTION
 # ====================================
-st.caption("Distribuição do nível de estresse no grupo analisado (escala 0-10). Valores acima de 6 indicam alto estresse neste conjunto de dados.")
-
-# Usa coluna normalizada 'stress_score' (escala 0-10)
-if 'stress_score' in df_filtered.columns:
-    fig = px.histogram(
-        df_filtered, 
-        x='stress_score', 
-        nbins=20,
-        title="Distribuição do Estresse (Score 0-10)",
-        labels={'stress_score': 'Score de Estresse'},
-        color_discrete_sequence=['#FF6B6B']
-    )
-    fig.update_layout(
-        xaxis_title="Score de Estresse (0-10)",
-        yaxis_title="Número de Respondentes",
-        showlegend=False
-    )
-    st.plotly_chart(fig, use_container_width=True, key="hist_stress_burnout")
-else:
-    st.warning("⚠️ Coluna 'stress_score' não encontrada nos dados.")
-
-st.divider()
+st.title("Burnout & carga de trabalho")
+st.caption("Associação entre intensidade de trabalho e risco de estresse e burnout.")
 
 # ====================================
-# ANÁLISES COMPARATIVAS
+# KPIs (3 COLUMNS)
 # ====================================
-st.subheader("🔍 Análises Comparativas")
+burnout_high_pct, stress_mean, hours_mean = make_burnout_kpi_cards(df_filtered)
 
-c1, c2 = st.columns(2)
-with c1:
-    st.markdown("#### ⏰ Horas de Trabalho × Estresse")
-    st.caption("Relação entre horas trabalhadas por semana e nível de estresse. Observe se há associação positiva neste conjunto de dados.")
-    st.plotly_chart(scatter_hours_burnout(df_filtered), use_container_width=True, key="scatter_hours_burnout")
-with c2:
-    st.markdown("#### 👥 Estresse por Cargo")
-    st.caption("Distribuição de estresse entre diferentes ocupações. Compare os padrões e identifique cargos com maior variabilidade.")
-    st.plotly_chart(box_burnout_by_role(df_filtered), use_container_width=True, key="box_burnout_by_role")
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.metric("% Burnout Alto", f"{burnout_high_pct:.1f}%")
+
+with col2:
+    st.metric("Estresse Médio", f"{stress_mean:.1f}")
+
+with col3:
+    st.metric("Horas/Semana", f"{hours_mean:.1f}h")
+
+st.markdown("<br>", unsafe_allow_html=True)
 
 # ====================================
-# INSIGHTS
+# BLOCK 1: MAIN CHART (FULL-WIDTH SCATTER)
 # ====================================
-insight_box("🔥 Insights Automáticos de Burnout", insights_burnout(df_filtered))
+st.plotly_chart(plot_hours_vs_stress_scatter(df_filtered), use_container_width=True)
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# ====================================
+# BLOCK 2: STRESS BY HOURS BAND
+# ====================================
+st.plotly_chart(plot_stress_by_hours_band(df_filtered), use_container_width=True)
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# ====================================
+# BLOCK 3: ROLES BURNOUT RANKING
+# ====================================
+st.plotly_chart(plot_roles_burnout_ranking(df_filtered), use_container_width=True)
 
 # ====================================
 # FOOTER
 # ====================================
-st.caption("💡 Explore 'Ambiente de Trabalho' para ver como políticas de suporte impactam o burnout.")
+st.markdown("<br><hr><center style='color:gray'>Dashboard • Projetos 5 — GTI • 2025</center>",
+            unsafe_allow_html=True)
