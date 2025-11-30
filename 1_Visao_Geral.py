@@ -52,38 +52,36 @@ st.markdown(
 # KPIs — PAINEL PRINCIPAL
 # ============================
 st.subheader("📊 Indicadores Globais")
-st.caption("Resumo dos principais indicadores considerando os filtros aplicados.")
 
 kpi_cards(filtered, df)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ============================
-# GRÁFICOS PREMIUM
+# GRÁFICOS 
 # ============================
-st.subheader("📈 Insights Visuais — Versão Premium")
-st.caption("Visualizações otimizadas em estilo enterprise para suportar o storytelling.")
+st.subheader("📈 Insights Visuais ")
 
 col1, col2 = st.columns(2)
 
-# --- GRÁFICO PREMIUM 1: DISTRIBUIÇÃO DE ESTRESSE ---
+# --- GRÁFICO 1: DISTRIBUIÇÃO DE ESTRESSE ---
 with col1:
-    st.markdown("#### 😰 Distribuição de Estresse (Premium)")
+    st.markdown("#### 😰 Distribuição de Estresse")
     st.plotly_chart(stress_distribution_premium(filtered), use_container_width=True)
 
-# --- GRÁFICO PREMIUM 2: HORAS × ESTRESSE ---
+# --- GRÁFICO 2: HORAS × ESTRESSE ---
 with col2:
-    st.markdown("#### ⏰ Carga Horária × Estresse (Premium)")
+    st.markdown("#### ⏰ Carga Horária × Estresse")
     st.plotly_chart(hours_vs_stress_premium(filtered), use_container_width=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
 
 # ============================
-# SEGMENTOS — PAINEL PREMIUM
+# SEGMENTOS
 # ============================
 if "segment" in filtered and "burnout_level" in filtered:
-    st.subheader("🔥 Segmentos Críticos — Análise Premium")
+    st.subheader("🔥 Análise Segmentos Críticos")
     st.caption("Comparação direta dos segmentos com maior risco de burnout.")
 
     st.plotly_chart(
@@ -94,11 +92,10 @@ if "segment" in filtered and "burnout_level" in filtered:
     st.markdown("<br>", unsafe_allow_html=True)
 
 # ============================
-# HEATMAP DE RISCO — PREMIUM
+# HEATMAP DE RISCO Visualização de risco cruzando modalide de trabalho e segmentos.
 # ============================
 if "work_mode" in filtered:
-    st.subheader("🌡 Heatmap de Risco (Premium)")
-    st.caption("Visualização de risco cruzando modalide de trabalho e segmentos.")
+    st.subheader("🌡 Heatmap de Risco")
 
     st.plotly_chart(
         risk_heatmap_premium(filtered),
@@ -126,5 +123,5 @@ Aproveite os filtros para conduzir sua análise durante a apresentação.
 # ============================
 # FOOTER
 # ============================
-st.markdown("<br><hr><center style='color:gray'>Dashboard SR2 • Projetos 5 — GTI • 2025</center>",
+st.markdown("<br><hr><center style='color:gray'>Dashboard • Projetos 5 — GTI • 2025</center>",
             unsafe_allow_html=True)
