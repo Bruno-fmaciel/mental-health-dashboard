@@ -65,6 +65,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 # ====================================
 summary_df = make_policy_summary_table(df_filtered)
 if not summary_df.empty:
+    st.subheader("Resumo por política")
     st.dataframe(summary_df, use_container_width=True)
 
 # ====================================

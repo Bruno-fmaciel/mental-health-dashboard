@@ -275,24 +275,44 @@ def plot_burnout_distribution_by_policy(df):
     if policy_burnout.empty:
         return go.Figure()
     
+    # Map burnout levels to Portuguese for legend
+    burnout_level_pt = {
+        'low': 'Baixo',
+        'medium': 'Médio',
+        'high': 'Alto'
+    }
+    policy_burnout['burnout_level_pt'] = policy_burnout['burnout_level'].map(burnout_level_pt).fillna(policy_burnout['burnout_level'])
+    
     fig = px.bar(
         policy_burnout,
         x='policy',
         y='proportion',
-        color='burnout_level',
+        color='burnout_level_pt',
         barmode='stack',
         title="Distribuição de burnout por política",
         labels={
             'policy': 'Política',
             'proportion': '% de Respondentes',
-            'burnout_level': 'Nível de Burnout'
+            'burnout_level_pt': 'Nível de Burnout'
         },
-        color_discrete_map=BURNOUT_COLOR_MAP,
-        category_orders={'burnout_level': ['low', 'medium', 'high']}
+        color_discrete_map={
+            'Baixo': COLOR_LOW_RISK,
+            'Médio': COLOR_MEDIUM_RISK,
+            'Alto': COLOR_HIGH_RISK
+        },
+        category_orders={'burnout_level_pt': ['Baixo', 'Médio', 'Alto']}
     )
     fig.update_layout(
         xaxis_title="Política",
-        yaxis_title="% de Respondentes"
+        yaxis_title="% de Respondentes",
+        legend_title="Nível de Burnout",
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        )
     )
     return fig
 
@@ -352,7 +372,8 @@ def make_policy_summary_table(df):
     }).reset_index()
     
     summary.columns = ['policy_name', 'N', 'average_stress', 'high_burnout_rate']
-    summary = summary.sort_values('high_burnout_rate', ascending=False)
+    # Sort by high_burnout_rate in ascending order (same as ranking chart)
+    summary = summary.sort_values('high_burnout_rate', ascending=True)
     
     return summary
 
