@@ -1,5 +1,7 @@
+import pandas as pd
+
 def insights_enviroments(df, policy_col="policy"):
-    if df is None or len(df) < 5 or policy_col not in df:
+    if df is None or df.empty or len(df) < 5 or policy_col not in df.columns:
         return ["Dados insuficientes para gerar insights sobre políticas."]
 
     insights = []
@@ -16,14 +18,15 @@ def insights_enviroments(df, policy_col="policy"):
             best = grouped.index[0]
             worst = grouped.index[-1]
             insights.append(
-                f"A política **{best}** apresenta o **menor burnout** (**{grouped.iloc[0]:.1f}%**), enquanto **{worst}** tem o **maior risco** (**{grouped.iloc[-1]:.1f}%**)."
+                f"A política **{best}** aparece associada ao **menor burnout** (**{grouped.iloc[0]:.1f}%**), enquanto **{worst}** apresenta o **maior risco** (**{grouped.iloc[-1]:.1f}%**) neste conjunto de dados."
             )
 
     # Se uma política domina os dados (>70%)
-    dist = df[policy_col].value_counts(normalize=True) * 100
-    if dist.iloc[0] > 70:
-        insights.append(
-            f"A categoria **{dist.index[0]}** domina os dados (**{dist.iloc[0]:.1f}%**), o que pode enviesar interpretações."
-        )
+    if policy_col in df.columns:
+        dist = df[policy_col].value_counts(normalize=True) * 100
+        if len(dist) > 0 and dist.iloc[0] > 70:
+            insights.append(
+                f"A categoria **{dist.index[0]}** domina os dados (**{dist.iloc[0]:.1f}%**), o que pode afetar a interpretação dos padrões."
+            )
 
-    return insights
+    return insights if insights else ["Dados insuficientes para gerar insights sobre políticas."]
