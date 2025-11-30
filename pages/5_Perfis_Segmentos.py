@@ -34,7 +34,7 @@ st.caption("Identificação de grupos com maior estresse e burnout.")
 # Determine available segmentation columns
 available_segmentations = []
 segmentation_labels = {
-    'segment': 'Departamento (workplace)',
+    'segment': 'Região',
     'role': 'Ocupação (principal)',
     'policy': 'Política'
 }
@@ -66,7 +66,11 @@ with col1:
     st.metric("Segmentos", n_segments)
 
 with col2:
-    st.metric("% em Segmentos Críticos", f"{pct_critical:.1f}%")
+    st.metric(
+        "% em Segmentos Críticos",
+        f"{pct_critical:.1f}%",
+        help="Top 3 segmentos por % de burnout alto"
+    )
 
 with col3:
     st.metric("% Burnout Alto Geral", f"{overall_high_burnout:.1f}%")

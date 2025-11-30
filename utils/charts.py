@@ -573,6 +573,10 @@ def plot_segment_burnout_ranking(df, segmentation):
     
     segment_stats = segment_stats.sort_values('high_burnout_rate', ascending=True).reset_index()
     
+    # Adjust height based on number of segments (min 300, max 600, ~50px per segment)
+    n_segments = len(segment_stats)
+    height = max(300, min(600, 50 + (n_segments * 50)))
+    
     fig = px.bar(
         segment_stats,
         x='high_burnout_rate',
@@ -589,7 +593,8 @@ def plot_segment_burnout_ranking(df, segmentation):
     fig.update_layout(
         xaxis_title="% Burnout Alto",
         yaxis_title="Segmento",
-        coloraxis_showscale=False
+        coloraxis_showscale=False,
+        height=height
     )
     return fig
 
@@ -612,6 +617,10 @@ def plot_segment_stress_mean(df, segmentation):
     
     segment_stats = segment_stats.sort_values('stress_mean', ascending=True).reset_index()
     
+    # Adjust height based on number of segments (min 300, max 600, ~50px per segment)
+    n_segments = len(segment_stats)
+    height = max(300, min(600, 50 + (n_segments * 50)))
+    
     fig = px.bar(
         segment_stats,
         x='stress_mean',
@@ -628,7 +637,8 @@ def plot_segment_stress_mean(df, segmentation):
     fig.update_layout(
         xaxis_title="Estresse Médio",
         yaxis_title="Segmento",
-        coloraxis_showscale=False
+        coloraxis_showscale=False,
+        height=height
     )
     return fig
 
