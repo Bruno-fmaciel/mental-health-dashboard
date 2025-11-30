@@ -4,7 +4,7 @@ from utils.data_io import load_data
 from utils.theming import set_page_theme
 
 st.set_page_config(
-    page_title="Sobre & Métodos — SR2",
+    page_title="Sobre & Métodos",
     page_icon="ℹ️",
     layout="wide"
 )

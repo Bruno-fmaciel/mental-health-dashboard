@@ -8,7 +8,7 @@ from utils.charts import (
     make_policy_summary_table
 )
 
-st.set_page_config(page_title="Ambiente de Trabalho — SR2", page_icon="🏢", layout="wide")
+st.set_page_config(page_title="Ambiente de Trabalho", page_icon="🏢", layout="wide")
 set_page_theme()
 
 # ====================================

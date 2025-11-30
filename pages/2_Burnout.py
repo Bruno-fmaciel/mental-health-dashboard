@@ -8,7 +8,7 @@ from utils.charts import (
     plot_roles_burnout_ranking
 )
 
-st.set_page_config(page_title="Burnout — SR2", page_icon="🔥", layout="wide")
+st.set_page_config(page_title="Burnout", page_icon="🔥", layout="wide")
 set_page_theme()
 
 # ====================================
