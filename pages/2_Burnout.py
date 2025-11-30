@@ -1,5 +1,4 @@
 import streamlit as st
-import pandas as pd
 import plotly.express as px
 from utils.data_io import load_data, render_sidebar
 from utils.charts import scatter_hours_burnout, box_burnout_by_role
@@ -11,24 +10,21 @@ st.set_page_config(page_title="Burnout — SR2", page_icon="🔥", layout="wide"
 # ====================================
 # TÍTULO E INTRODUÇÃO
 # ====================================
-st.title("🔥 Deep Dive: Burnout e Intensidade de Trabalho")
+st.title("🔥 Burnout e Carga de Trabalho")
 
-st.markdown("""
-<div style='background-color: rgba(42, 42, 42, 0.3); padding: 1.5rem; border-radius: 0.5rem; border-left: 4px solid #FF6B6B; margin-bottom: 2rem;'>
+# with st.expander("Como pensamos esta análise?"):
+#     st.markdown(
+#         """
+#         Nesta página não estamos provando causa e efeito, mas olhando para **padrões de associação**.
+#         Em outras palavras: *neste conjunto de dados*, certos contextos de trabalho aparecem mais
+#         frequentemente com estresse e burnout altos.
 
-### 🎯 Foco desta Análise
+#         Isso ajuda a levantar hipóteses do tipo:
+#         - “Equipes com comunicação mais clara parecem relatar menos burnout?”
+#         - “Falta de apoio psicológico aparece junto com mais casos de burnout alto?”
+#         """
+#     )
 
-Esta página explora a **relação entre intensidade de trabalho e risco de burnout**:
-- **Longas jornadas** aumentam o estresse?
-- **Cargos específicos** são mais vulneráveis?
-- **Há um ponto de virada** onde o risco dispara?
-
-Use os **filtros na sidebar** para focar em grupos específicos (ex: só remotos, só híbridos, departamentos críticos).
-
-</div>
-""", unsafe_allow_html=True)
-
-st.divider()
 
 # ====================================
 # CARREGA E FILTRA DADOS
@@ -47,8 +43,7 @@ if df_filtered.empty:
 # ====================================
 # DISTRIBUIÇÃO DE ESTRESSE
 # ====================================
-st.subheader("📊 Distribuição do Estresse")
-st.caption("Histograma do score de estresse (escala 0-10). Valores acima de 6 indicam alto estresse.")
+st.caption("Distribuição do nível de estresse no grupo analisado (escala 0-10). Valores acima de 6 indicam alto estresse neste conjunto de dados.")
 
 # Usa coluna normalizada 'stress_score' (escala 0-10)
 if 'stress_score' in df_filtered.columns:
@@ -79,55 +74,19 @@ st.subheader("🔍 Análises Comparativas")
 c1, c2 = st.columns(2)
 with c1:
     st.markdown("#### ⏰ Horas de Trabalho × Estresse")
-    st.caption("Quanto mais horas trabalhadas, maior o estresse?")
+    st.caption("Relação entre horas trabalhadas por semana e nível de estresse. Observe se há associação positiva neste conjunto de dados.")
     st.plotly_chart(scatter_hours_burnout(df_filtered), use_container_width=True, key="scatter_hours_burnout")
 with c2:
     st.markdown("#### 👥 Estresse por Cargo")
-    st.caption("Compare a distribuição de estresse entre diferentes ocupações.")
+    st.caption("Distribuição de estresse entre diferentes ocupações. Compare os padrões e identifique cargos com maior variabilidade.")
     st.plotly_chart(box_burnout_by_role(df_filtered), use_container_width=True, key="box_burnout_by_role")
-
-st.divider()
-
-# ====================================
-# INSIGHTS E PRÓXIMOS PASSOS
-# ====================================
-st.subheader("💡 Insights e Recomendações")
-
-col1, col2 = st.columns(2)
-
-with col1:
-    st.markdown("""
-    #### 📊 O que observar
-    
-    - **Correlação positiva** entre horas e estresse (quanto mais horas, mais estresse)
-    - **Outliers**: pessoas com poucas horas mas alto estresse (outras causas?)
-    - **Cargos com distribuição mais dispersa** (heterogeneidade na equipe)
-    - **Pontos de virada**: há um limiar de horas onde o risco dispara?
-    
-    💡 Use os filtros para comparar grupos específicos (ex: Remote vs Hybrid).
-    """)
-
-with col2:
-    st.markdown("""
-    #### 🎯 Ações sugeridas
-    
-    - **Limitar jornadas** acima de 45h/semana
-    - **Investigar cargos** com alto estresse médio
-    - **Implementar políticas** de descanso obrigatório
-    - **Monitorar continuamente** grupos de alto risco
-    - **Considerar rotação** em funções de alta pressão
-    
-    ⚠️ Atenção especial a cargos com estresse consistentemente >7.
-    """)
 
 # ====================================
 # INSIGHTS
 # ====================================
 insight_box("🔥 Insights Automáticos de Burnout", insights_burnout(df_filtered))
 
-
 # ====================================
 # FOOTER
 # ====================================
-st.divider()
-st.caption("💡 **Próximos passos**: Explore 'Ambiente de Trabalho' para ver como políticas de suporte impactam o burnout.")
+st.caption("💡 Explore 'Ambiente de Trabalho' para ver como políticas de suporte impactam o burnout.")

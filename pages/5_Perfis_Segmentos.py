@@ -12,17 +12,6 @@ st.set_page_config(page_title="Perfis & Segmentos — SR2", page_icon="🧩", la
 # ====================================
 st.title("🧩 Perfis & Segmentos")
 
-st.markdown("""
-### 🎯 Objetivo desta Análise
-
-Aqui comparamos **segmentos** (departamentos, regiões, indústrias) em termos de:
-- **Estresse médio** - Quanto estresse os colaboradores relatam
-- **Horas semanais** - Carga de trabalho típica
-- **% de Burnout Alto** - Proporção de pessoas em estado crítico
-
-Use esta página para **identificar segmentos de alto risco** que precisam de atenção urgente.
-""")
-
 # ====================================
 # CARREGA E FILTRA DADOS
 # ====================================
@@ -47,16 +36,14 @@ else:
 # ====================================
 # GRÁFICO PRINCIPAL: PERFIL DE RISCO
 # ====================================
-st.divider()
-st.subheader("📊 Perfil de Risco por Segmento")
-st.caption("Compare métricas-chave entre diferentes segmentos. Segmentos com alto estresse + alta % burnout = perfil crítico.")
+
+#st.caption("Compare métricas-chave entre diferentes segmentos. Segmentos com alto estresse e alta % de burnout apresentam perfil crítico neste conjunto de dados.")
 
 st.plotly_chart(small_multiples_segments(df_filtered), use_container_width=True, key="small_multiples_segments")
 
 # ====================================
 # RANKING DE SEGMENTOS CRÍTICOS
 # ====================================
-st.divider()
 st.subheader("⚠️ Segmentos de Maior Risco")
 
 # Calcula score de risco
@@ -97,40 +84,6 @@ else:
     st.info("Coluna 'burnout_level' não disponível. Ranking de risco não pode ser calculado.")
 
 # ====================================
-# SEÇÕES DE INSIGHTS
-# ====================================
-st.divider()
-
-col1, col2 = st.columns(2)
-
-with col1:
-    st.subheader("💡 Insights")
-    st.markdown("""
-    **Como interpretar**:
-    - **Estresse Médio**: Valores mais altos indicam maior nível de estresse relatado
-    - **% Burnout Alto**: Percentual de pessoas com nível alto de burnout no segmento
-    - **Horas/Semana**: Média de horas trabalhadas por semana
-    
-    **Correlações esperadas**:
-    - Mais horas → Maior estresse
-    - Maior estresse → Maior % burnout
-    """)
-
-with col2:
-    st.subheader("🎯 Segmentos Disponíveis")
-    
-    # Informações sobre os tipos de segmento nos dados
-    if 'source' in df.columns:
-        st.markdown("""
-        **Tipos de segmentação por dataset**:
-        - `dataset_workplace` → Departamento (HR, IT, Sales, etc.)
-        - `dataset_burnout` → Região (Europe, Asia, Americas)
-        - `dataset_principal` → Ocupação (Corporate, etc.)
-        
-        💡 **Dica**: Use os filtros na sidebar para selecionar quais segmentos comparar.
-        """)
-
-# ====================================
 # TABELA DETALHADA - TODOS OS SEGMENTOS
 # ====================================
 st.divider()
@@ -138,7 +91,7 @@ st.subheader("📈 Estatísticas Detalhadas por Segmento")
 
 st.caption("""
 **Como usar esta tabela**: Procure segmentos com **alto estresse médio** (>6) **E** **alta % burnout alto** (>40%). 
-Esses são os perfis de risco crítico que precisam de intervenção prioritária.
+Esses são os perfis que apresentam maior risco neste conjunto de dados e podem requerer atenção prioritária.
 """)
 
 if 'segment' in df_filtered.columns:
@@ -182,26 +135,6 @@ if 'segment' in df_filtered.columns:
         height=400
     )
 
-# ====================================
-# INTERPRETAÇÃO INTERATIVA
-# ====================================
-st.divider()
-st.markdown("### 💬 Exercício em Grupo: Análise de Perfil")
-
-st.info("""
-**Atividade sugerida para discussão em grupo:**
-
-1. Cada pessoa escolhe um segmento diferente da tabela acima
-2. Responda: *"Se eu fosse o gestor desse segmento, o que me preocuparia vendo esses números?"*
-3. Considere:
-   - O estresse está acima da média geral?
-   - A % de burnout alto é preocupante (>40%)?
-   - As horas trabalhadas são excessivas (>45h/sem)?
-   - Há desvio padrão alto no estresse (equipe heterogênea)?
-
-💡 **Dica**: Use os filtros na sidebar para explorar subgrupos específicos dentro de cada segmento.
-""")
-
 # KPI geral para benchmark
 st.markdown("#### 📊 Benchmarks Gerais (para comparação)")
 
@@ -230,5 +163,4 @@ insight_box("🔥 Insights Automáticos de Burnout", insights_segments(df_filter
 # ====================================
 # FOOTER
 # ====================================
-st.divider()
-st.caption("💡 **Dica final**: Combine esta análise de segmentos com os filtros de cargo e modalidade para identificar perfis de risco ainda mais específicos.")
+st.caption("💡 Combine esta análise de segmentos com os filtros de cargo e modalidade para identificar perfis de risco ainda mais específicos.")

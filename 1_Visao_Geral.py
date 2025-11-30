@@ -1,8 +1,7 @@
 import streamlit as st
-import plotly.express as px
 from utils.data_io import load_data, render_sidebar
 from utils.theming import set_page_theme
-from utils.charts import kpi_cards, dist_stress
+from utils.charts import kpi_cards
 from utils.charts import (
     stress_distribution_premium,
     hours_vs_stress_premium,
@@ -26,6 +25,11 @@ set_page_theme()
 df = load_data()
 filtered = render_sidebar(df)
 
+# Validação de DataFrame vazio
+if filtered.empty:
+    st.warning("⚠️ Nenhum dado disponível com os filtros selecionados. Ajuste os filtros na barra lateral.")
+    st.stop()
+
 # ============================
 # HEADER — HERO SECTION
 # ============================
@@ -40,8 +44,8 @@ st.markdown(
 ">
     <h1 style="margin: 0; font-size: 2.6rem; color: #4A90E2;">🧠 Saúde Mental no Trabalho</h1>
     <p style="color:#d1d5db; font-size:1.1rem; margin-top:8px;">
-        Monitoramento integrado de estresse, burnout e condições de trabalho. 
-        Explore tendências, identifique grupos de risco e apoie decisões baseadas em dados.
+        Panorama geral de estresse, burnout e carga horária no ambiente de trabalho. 
+        Explore padrões, identifique grupos de risco e apoie decisões baseadas em dados.
     </p>
 </div>
 """,
@@ -52,6 +56,7 @@ st.markdown(
 # KPIs — PAINEL PRINCIPAL
 # ============================
 st.subheader("📊 Indicadores Globais")
+st.caption("Panorama geral dos principais indicadores. Use os filtros na barra lateral para explorar diferentes grupos e identificar padrões de risco.")
 
 kpi_cards(filtered, df)
 
@@ -60,18 +65,20 @@ st.markdown("<br>", unsafe_allow_html=True)
 # ============================
 # GRÁFICOS 
 # ============================
-st.subheader("📈 Insights Visuais ")
+st.subheader("📈 Insights Visuais")
 
 col1, col2 = st.columns(2)
 
 # --- GRÁFICO 1: DISTRIBUIÇÃO DE ESTRESSE ---
 with col1:
     st.markdown("#### 😰 Distribuição de Estresse")
+    st.caption("Distribuição do nível de estresse no conjunto de dados. Valores mais altos indicam maior estresse relatado.")
     st.plotly_chart(stress_distribution_premium(filtered), use_container_width=True)
 
 # --- GRÁFICO 2: HORAS × ESTRESSE ---
 with col2:
     st.markdown("#### ⏰ Carga Horária × Estresse")
+    st.caption("Relação entre horas trabalhadas por semana e nível de estresse. Neste conjunto de dados, observe se há associação entre essas variáveis.")
     st.plotly_chart(hours_vs_stress_premium(filtered), use_container_width=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
@@ -80,9 +87,9 @@ st.markdown("<br>", unsafe_allow_html=True)
 # ============================
 # SEGMENTOS
 # ============================
-if "segment" in filtered and "burnout_level" in filtered:
-    st.subheader("🔥 Análise Segmentos Críticos")
-    st.caption("Comparação direta dos segmentos com maior risco de burnout.")
+if "segment" in filtered.columns and "burnout_level" in filtered.columns:
+    st.subheader("🔥 Análise de Segmentos Críticos")
+    st.caption("Comparação dos segmentos com maior risco de burnout. Segmentos com maior percentual de burnout alto requerem atenção prioritária.")
 
     st.plotly_chart(
         burnout_segments_premium(filtered),
@@ -92,10 +99,11 @@ if "segment" in filtered and "burnout_level" in filtered:
     st.markdown("<br>", unsafe_allow_html=True)
 
 # ============================
-# HEATMAP DE RISCO Visualização de risco cruzando modalide de trabalho e segmentos.
+# HEATMAP DE RISCO
 # ============================
-if "work_mode" in filtered:
-    st.subheader("🌡 Heatmap de Risco")
+if "work_mode" in filtered.columns:
+    st.subheader("🌡 Heatmap de Correlações")
+    st.caption("Mapa de correlações entre indicadores numéricos. Valores próximos de +1 ou -1 indicam associações mais fortes neste conjunto de dados.")
 
     st.plotly_chart(
         risk_heatmap_premium(filtered),
@@ -103,22 +111,6 @@ if "work_mode" in filtered:
     )
 
 st.markdown("<br>", unsafe_allow_html=True)
-
-# ============================
-# CALL TO ACTION — NAVEGAÇÃO
-# ============================
-st.success("""
-### 🚀 Continue Explorando o Dashboard  
-Use o menu lateral para análises aprofundadas:
-
-- 🔥 **Burnout** — relação entre estresse e carga de trabalho  
-- 🏢 **Ambiente de Trabalho** — impacto das políticas e condições organizacionais  
-- 🏠 **Remoto & Híbrido** — comparação entre modalidades  
-- 🧩 **Perfis & Segmentos** — identificação de grupos críticos  
-- ℹ️ **Sobre & Métodos** — documentação completa do projeto  
-
-Aproveite os filtros para conduzir sua análise durante a apresentação.
-""")
 
 # ============================
 # FOOTER

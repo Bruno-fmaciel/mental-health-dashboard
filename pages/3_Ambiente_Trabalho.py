@@ -12,20 +12,6 @@ st.set_page_config(page_title="Ambiente de Trabalho — SR2", page_icon="🏢", 
 # ====================================
 st.title("🏢 Ambiente de Trabalho e Políticas Organizacionais")
 
-st.markdown("""
-<div style='background-color: rgba(42, 42, 42, 0.3); padding: 1.5rem; border-radius: 0.5rem; border-left: 4px solid #2980b9; margin-bottom: 2rem;'>
-
-### 🎯 Perguntas-chave desta análise
-
-- **Quais políticas de suporte** estão associadas a menor risco de burnout?
-- **Ter acesso a recursos de saúde mental** faz diferença mensurável no bem-estar?
-- **Como diferentes condições organizacionais** impactam o estresse e o esgotamento dos colaboradores?
-
-Esta página explora como as **políticas e condições do ambiente de trabalho** influenciam 
-o risco de burnout, complementando a análise de modalidades (Remoto/Híbrido) e características individuais.
-
-</div>
-""", unsafe_allow_html=True)
 
 # ====================================
 # CARREGA E FILTRA DADOS
@@ -41,7 +27,6 @@ if df_filtered.empty:
 # ====================================
 # SELEÇÃO DE DIMENSÃO DE POLÍTICA
 # ====================================
-st.divider()
 st.subheader("📊 Análise de Políticas")
 
 # Identifica dimensões disponíveis
@@ -130,7 +115,7 @@ st.subheader("📊 Distribuição de Burnout por Política")
 
 st.caption("""
 O gráfico abaixo mostra a **proporção** de colaboradores em cada nível de burnout (baixo, médio, alto) 
-para cada política/condição. Cada barra soma 100%, permitindo comparar a composição de risco entre políticas.
+para cada política/condição. Cada barra soma 100%, permitindo comparar padrões de risco entre diferentes políticas neste conjunto de dados.
 """)
 
 fig = stacked_env_policies(df_filtered, policy_col=selected_dimension, min_pct=5.0, show_percentages=True)
@@ -185,60 +170,6 @@ st.download_button(
     help="Exporta a tabela completa para análise externa"
 )
 
-# ====================================
-# NOTAS DE INTERPRETAÇÃO
-# ====================================
-st.divider()
-st.markdown("### 💡 Como Interpretar os Resultados")
-
-col1, col2 = st.columns(2)
-
-with col1:
-    st.markdown("""
-    #### 📖 Lendo o Gráfico
-    
-    - **Barras vermelhas (alto risco)**: Indicam % de colaboradores com burnout alto
-    - **Políticas com mais vermelho**: Grupos mais críticos que precisam de atenção
-    - **Políticas com mais verde**: Condições associadas a menor risco
-    - **Comparação horizontal**: Permite identificar qual política é mais protetora
-    
-    ⚠️ **Atenção**: Categorias com menos de 5% dos dados são agrupadas em "Outros".
-    """)
-
-with col2:
-    st.markdown("""
-    #### 🎯 Próximos Passos
-    
-    1. **Identifique políticas críticas**: Foque nas com >50% de alto risco
-    2. **Compare com benchmark**: A média geral está em {:.1f}%
-    3. **Investigue causas**: Por que certas políticas têm mais/menos risco?
-    4. **Ações recomendadas**:
-       - Expandir políticas protetoras (menor risco)
-       - Reforçar suporte em políticas críticas
-       - Considerar pilotos de intervenção
-    
-    💬 **Combine com outros filtros** na sidebar para análises mais específicas!
-    """.format(avg_high))
-
-# ====================================
-# INSIGHTS CONTEXTUAIS
-# ====================================
-st.divider()
-st.markdown("### 🔍 Insights Contextuais")
-
-# Identifica política mais/menos protetora
-best_policy = risk_stats.iloc[-1]
-worst_policy = risk_stats.iloc[0]
-delta = worst_policy['pct_high'] - best_policy['pct_high']
-
-st.info(f"""
-**Diferença de impacto**: Colaboradores em **"{worst_policy[selected_dimension]}"** têm **{delta:.1f} pontos 
-percentuais a mais** de risco alto comparado a **"{best_policy[selected_dimension]}"**.
-
-Isso sugere que a política/condição organizacional tem **impacto significativo** no bem-estar 
-e deve ser considerada em estratégias de prevenção de burnout.
-""")
-
 # Aviso sobre tamanho de amostra
 min_n = risk_stats['n_total'].min()
 if min_n < 30:
@@ -255,5 +186,4 @@ insight_box("🔥 Insights Automáticos de Burnout", insights_enviroments(df_fil
 # ====================================
 # FOOTER
 # ====================================
-st.divider()
 st.caption("💡 **Dica**: Use os filtros na sidebar para segmentar a análise por cargo, modalidade ou carga horária.")
