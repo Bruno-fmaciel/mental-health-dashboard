@@ -64,12 +64,15 @@ st.markdown("<br>", unsafe_allow_html=True)
 # ====================================
 # BLOCK 3: ADVANCED / EXPLORATORY SECTION
 # ====================================
+st.markdown("<br>", unsafe_allow_html=True)
+st.divider()
 st.subheader("Análise avançada: deltas de risco por modalidade")
+st.caption("Comparação detalhada de diferenças de risco entre modalidades por segmento.")
 
 # Identify available segmentation columns
 available_segments = []
 segment_labels = {
-    'segment': 'Departamento (workplace)',
+    'segment': 'Região',
     'role': 'Ocupação (principal)',
     'policy': 'Política'
 }
@@ -94,9 +97,14 @@ if available_segments:
             options=["Remoto − Híbrido", "Remoto − Presencial", "Híbrido − Presencial"]
         )
     
-    st.plotly_chart(
-        plot_workmode_delta_heatmap(filtered, segment_dim, delta_type),
-        use_container_width=True
+    fig = plot_workmode_delta_heatmap(filtered, segment_dim, delta_type)
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Add explanation as caption below the chart
+    mode1, mode2 = delta_type.split(' − ')
+    st.caption(
+        f"💡 **Interpretação**: Valores positivos indicam que {mode1.strip()} tem maior risco que {mode2.strip()}. "
+        f"Valores negativos indicam que {mode2.strip()} tem maior risco que {mode1.strip()}."
     )
 else:
     st.info("ℹ️ Não há dimensões de segmentação suficientes para análise avançada.")

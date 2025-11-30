@@ -362,7 +362,7 @@ def make_policy_summary_table(df):
 # ============================================================================
 
 def make_workmode_kpi_cards(df):
-    """Summarize per work_mode (remote, hybrid, onsite)."""
+    """Summarize per work_mode (remote, hybrid, onsite). Returns ordered dict."""
     if df.empty or 'work_mode' not in df.columns:
         return {}
     
@@ -378,13 +378,28 @@ def make_workmode_kpi_cards(df):
         'work_mode': 'n'
     })
     
-    return workmode_stats.to_dict('index')
+    # Order: onsite → hybrid → remote
+    ordered_modes = ['onsite', 'hybrid', 'remote']
+    result = {}
+    for mode in ordered_modes:
+        if mode in workmode_stats.index:
+            result[mode] = workmode_stats.loc[mode].to_dict()
+    
+    # Add any remaining modes not in the standard order
+    for mode in workmode_stats.index:
+        if mode not in result:
+            result[mode] = workmode_stats.loc[mode].to_dict()
+    
+    return result
 
 
 def plot_stress_by_workmode(df):
     """Uses px.violin or px.box with x=work_mode, y=stress_score."""
     if df.empty or 'work_mode' not in df.columns or 'stress_score' not in df.columns:
         return go.Figure()
+    
+    # Order: onsite → hybrid → remote
+    workmode_order = ['onsite', 'hybrid', 'remote']
     
     fig = px.violin(
         df,
@@ -398,7 +413,8 @@ def plot_stress_by_workmode(df):
             'stress_score': 'Score de Estresse'
         },
         color='work_mode',
-        color_discrete_sequence=[COLOR_NEUTRAL, '#4ECDC4', '#FFE66D']
+        color_discrete_sequence=[COLOR_NEUTRAL, '#4ECDC4', '#FFE66D'],
+        category_orders={'work_mode': workmode_order}
     )
     fig.update_layout(
         xaxis_title="Modalidade de Trabalho",
@@ -417,6 +433,17 @@ def plot_burnout_by_workmode(df):
         'burnout_level': lambda x: (x == 'high').mean() * 100
     }).rename(columns={'burnout_level': 'high_burnout_rate'}).reset_index()
     
+    # Order: onsite → hybrid → remote (only include modes that exist in data)
+    workmode_order = ['onsite', 'hybrid', 'remote']
+    available_modes = [m for m in workmode_order if m in workmode_stats['work_mode'].values]
+    if available_modes:
+        workmode_stats['work_mode'] = pd.Categorical(
+            workmode_stats['work_mode'],
+            categories=available_modes,
+            ordered=True
+        )
+        workmode_stats = workmode_stats.sort_values('work_mode')
+    
     fig = px.bar(
         workmode_stats,
         x='work_mode',
@@ -427,7 +454,8 @@ def plot_burnout_by_workmode(df):
             'high_burnout_rate': '% Burnout Alto'
         },
         color='high_burnout_rate',
-        color_continuous_scale='Reds'
+        color_continuous_scale='Reds',
+        category_orders={'work_mode': workmode_order}
     )
     fig.update_layout(
         xaxis_title="Modalidade de Trabalho",
@@ -501,6 +529,11 @@ def plot_workmode_delta_heatmap(df, segment_dim, delta_type):
         pivot_df = pivot_df.sort_values('delta', ascending=False)
         
         # Create horizontal bar chart showing deltas
+        # Create clearer label
+        mode1_label = modes[0].strip()
+        mode2_label = modes[1].strip()
+        xaxis_label = f"Diferença em p.p. de burnout alto ({mode1_label} − {mode2_label})"
+        
         fig = px.bar(
             pivot_df,
             x='delta',
@@ -508,7 +541,7 @@ def plot_workmode_delta_heatmap(df, segment_dim, delta_type):
             orientation='h',
             title=f"Delta de burnout entre modalidades por segmento",
             labels={
-                'delta': f'Δ pp ({modes[0]} − {modes[1]})',
+                'delta': xaxis_label,
                 segment_dim: 'Segmento'
             },
             color='delta',
@@ -516,9 +549,12 @@ def plot_workmode_delta_heatmap(df, segment_dim, delta_type):
             color_continuous_midpoint=0
         )
         fig.update_layout(
-            xaxis_title=f"Δ pp ({modes[0]} − {modes[1]})",
+            xaxis_title=xaxis_label,
             yaxis_title="Segmento",
-            coloraxis_showscale=True
+            coloraxis_showscale=True,
+            coloraxis_colorbar=dict(
+                title="Δ p.p."
+            )
         )
         return fig
     
