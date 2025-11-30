@@ -55,7 +55,7 @@ pip install -r requirements.txt
 ### 4. Execute o dashboard
 
 ```bash
-streamlit run app.py
+streamlit run 1_Visao_Geral.py
 ```
 
 O dashboard será aberto automaticamente no seu navegador em `http://localhost:8501`

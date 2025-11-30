@@ -120,15 +120,11 @@ with col2:
     ⚠️ Atenção especial a cargos com estresse consistentemente >7.
     """)
 
-insights = insights_burnout(df_filtered)
+# ====================================
+# INSIGHTS
+# ====================================
+insight_box("🔥 Insights Automáticos de Burnout", insights_burnout(df_filtered))
 
-formatted_items = "".join([f"<li>{i}</li>" for i in insights])
-formatted = f"<ul style='margin-left: 20px;'>{formatted_items}</ul>"
-
-insight_box(
-    title="🔥 Insights Automáticos de Burnout",
-    content=formatted
-)
 
 # ====================================
 # FOOTER

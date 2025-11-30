@@ -247,13 +247,10 @@ if min_n < 30:
     Resultados com amostras pequenas devem ser interpretados com cautela.
     """)
 
-    insights = insights_enviroments(df_filtered, policy_col=selected_dimension)
-    formatted = "<ul style='margin-left:18px;'>" + "".join([f"<li>{i}</li>" for i in insights]) + "</ul>"
-
-    insight_box(
-        title="🏢 Insights Automáticos: Ambiente & Políticas",
-        content=formatted
-    )
+# ====================================
+# INSIGHTS
+# ====================================
+insight_box("🔥 Insights Automáticos de Burnout", insights_enviroments(df_filtered))
 
 # ====================================
 # FOOTER

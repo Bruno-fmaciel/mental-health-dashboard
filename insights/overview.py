@@ -1,28 +1,29 @@
 def insights_overview(df):
+    if df is None or len(df) < 5:
+        return ["Dados insuficientes para gerar insights na visão geral."]
+
     insights = []
 
-    if len(df) == 0:
-        return ["Nenhum dado disponível para gerar insights."]
-
-    # Stress
-    if "stress_score" in df:
+    # ESTRESSE
+    if "stress_score" in df.columns:
         mean_s = df["stress_score"].mean()
+        risk = "alto" if mean_s >= 6 else "moderado" if mean_s >= 4 else "baixo"
         insights.append(
-            f"O nível médio de estresse é **{mean_s:.1f}**, indicando risco "
-            f"{'alto' if mean_s>7 else 'moderado' if mean_s>4 else 'baixo'}."
+            f"O estresse médio está em **{mean_s:.1f}**, indicando risco **{risk}** para o grupo analisado."
         )
 
-    # Burnout
-    if "burnout_level" in df:
-        high = (df["burnout_level"] == "high").mean() * 100
-        insights.append(f"Burnout alto aparece em **{high:.1f}%** do grupo analisado.")
-
-    # Horas
-    if "hours_per_week" in df:
-        hrs = df["hours_per_week"].mean()
+    # BURNOUT
+    if "burnout_level" in df.columns:
+        pct_high = (df["burnout_level"] == "high").mean() * 100
         insights.append(
-            f"A carga horária média é **{hrs:.1f}h**, "
-            + ("acima do recomendado." if hrs > 40 else "dentro do esperado.")
+            f"O burnout alto afeta **{pct_high:.1f}%** das pessoas filtradas, um indicador relevante para monitoramento."
+        )
+
+    # HORAS
+    if "hours_per_week" in df.columns:
+        avg_h = df["hours_per_week"].mean()
+        insights.append(
+            f"A carga média de trabalho está em **{avg_h:.1f}h/semana**, nivel {'acima' if avg_h > 40 else 'dentro'} do recomendado."
         )
 
     return insights
