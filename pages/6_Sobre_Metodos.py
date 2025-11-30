@@ -140,11 +140,10 @@ col1, col2 = st.columns(2)
 
 with col1:
     st.markdown("""
-**Devs:**
-- Bruno Maciel (GTI – SR2)
-- Camila Oliveira
 
 **Equipe:**
+- Bruno Maciel (Dev)
+- Camila Oliveira (Dev)
 - Maria Clara Medeiros
 - Yuri Tavares
 - Rodrigo Lyra
